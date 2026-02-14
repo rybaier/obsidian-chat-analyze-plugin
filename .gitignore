@@ -15,5 +15,9 @@ test-*.cjs
 # Claude Code
 CLAUDE.md
 
+# Test conversation fixtures
+TEST_PASTE_CONVERSATION.md
+TEST_SHARE_URL_LINK.md
+
 # OS
 .DS_Store
