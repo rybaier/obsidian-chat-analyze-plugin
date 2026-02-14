@@ -26,44 +26,44 @@ This document breaks down the architecture specification into concrete, executab
 
 ### Tasks
 
-- [ ] **1.1** Create `manifest.json`
+- [x] **1.1** Create `manifest.json`
   - `id`: `"chat-splitter"`
   - `name`: `"Chat Splitter"`
   - `version`: `"0.1.0"`
   - `minAppVersion`: `"0.15.0"`
   - `description`: `"Split long AI chat transcripts into organized, topic-specific notes."`
-  - `author`: TBD (ask user)
+  - `author`: `"Ryan Baier"`
   - `isDesktopOnly`: `false`
 
-- [ ] **1.2** Create `package.json`
+- [x] **1.2** Create `package.json`
   - Scripts: `dev` (esbuild watch), `build` (tsc + esbuild production)
   - devDependencies: `@types/node`, `esbuild`, `tslib`, `typescript`, `obsidian`
   - dependencies: `jszip` (for ZIP imports in Phase 9)
   - `"main": "main.js"`
 
-- [ ] **1.3** Create `tsconfig.json`
+- [x] **1.3** Create `tsconfig.json`
   - Based on obsidian-sample-plugin template
   - `target`: `ES6`, `module`: `ESNext`, `moduleResolution`: `node`
-  - `baseUrl`: `"src"`, `outDir`: `"."`, `rootDir`: `"src"`
+  - `baseUrl`: `"src"` (removed `outDir`/`rootDir` since `noEmit: true`)
   - `strict`: `true`, `noEmit`: `true`
   - `include`: `["src/**/*.ts"]`
   - `types`: `["node"]`
 
-- [ ] **1.4** Create `esbuild.config.mjs`
+- [x] **1.4** Create `esbuild.config.mjs`
   - Entry: `src/main.ts`, output: `main.js`
   - Externals: `obsidian`, `electron`, `@codemirror/*`, `@lezer/*`
   - Format: `cjs`, platform: `node`
   - Production mode via CLI arg
   - Watch mode for dev
 
-- [ ] **1.5** Create `.gitignore`
+- [x] **1.5** Create `.gitignore`
   - Ignore: `node_modules/`, `main.js`, `*.map`, `data.json`, `.DS_Store`, `.obsidian/`
 
-- [ ] **1.6** Create `version-bump.mjs`
+- [x] **1.6** Create `version-bump.mjs`
   - Script to sync version across `manifest.json` and `package.json`
   - Based on obsidian-sample-plugin template
 
-- [ ] **1.7** Create `src/main.ts` (empty skeleton)
+- [x] **1.7** Create `src/main.ts` (empty skeleton)
   ```typescript
   import { Plugin } from 'obsidian';
 
@@ -78,11 +78,11 @@ This document breaks down the architecture specification into concrete, executab
   }
   ```
 
-- [ ] **1.8** Create `styles.css` (empty, with header comment)
+- [x] **1.8** Create `styles.css` (empty, with header comment)
 
-- [ ] **1.9** Run `npm install` and verify dependency installation
+- [x] **1.9** Run `npm install` and verify dependency installation
 
-- [ ] **1.10** Run `npm run build` and verify `main.js` is generated
+- [x] **1.10** Run `npm run build` and verify `main.js` is generated
 
 ### Files Created
 | File | Purpose |
@@ -97,13 +97,15 @@ This document breaks down the architecture specification into concrete, executab
 | `styles.css` | Plugin styles (empty) |
 
 ### Acceptance Criteria
-- [ ] `npm install` completes without errors
-- [ ] `npm run build` produces `main.js` in project root
-- [ ] Plugin loads in Obsidian dev vault without console errors
-- [ ] Plugin can be enabled/disabled without errors
+- [x] `npm install` completes without errors
+- [x] `npm run build` produces `main.js` in project root
+- [ ] Plugin loads in Obsidian dev vault without console errors (requires manual test)
+- [ ] Plugin can be enabled/disabled without errors (requires manual test)
 
-### Commit Message
+### Commit Message title
 `feat: scaffold obsidian plugin project structure`
+
+### Commit and Push to Main
 
 ---
 
@@ -164,9 +166,10 @@ This document breaks down the architecture specification into concrete, executab
 - [ ] All interfaces match ARCHITECTURE.md Core Data Model and Settings Schema sections exactly
 - [ ] `GRANULARITY_PRESETS` values match ARCHITECTURE.md thresholds (coarse: 0.70/8/500, medium: 0.50/4/200, fine: 0.35/2/80)
 
-### Commit Message
+### Commit Message title
 `feat: define core TypeScript interfaces and type system`
 
+### Commit and Push to Main
 ---
 
 ## Phase 3: Paste Parsers + Format Detection
@@ -261,9 +264,10 @@ This document breaks down the architecture specification into concrete, executab
 - [ ] Generic parser handles input with no recognizable speaker labels (single-message fallback)
 - [ ] All parsers produce valid `ParsedConversation` objects with correct `messageCount` and sequential message indices
 
-### Commit Message
+### Commit Message title
 `feat: implement paste parsers with format auto-detection`
 
+### Commit and Push to Main
 ---
 
 ## Phase 4: Heuristic Segmentation Engine
@@ -411,9 +415,10 @@ This document breaks down the architecture specification into concrete, executab
 - [ ] `mergeSegments` correctly combines adjacent segments
 - [ ] `splitSegment` correctly creates two segments at specified boundary
 
-### Commit Message
+### Commit Message title
 `feat: implement heuristic segmentation engine with 6 weighted signals`
 
+### Commit and Push to Main
 ---
 
 ## Phase 5: Note Generation Pipeline
@@ -540,9 +545,10 @@ This document breaks down the architecture specification into concrete, executab
 - [ ] Collision resolution appends correct numeric suffix
 - [ ] Template rendering replaces all supported variables correctly
 
-### Commit Message
+### Commit Message title
 `feat: implement note generation pipeline with frontmatter and formatting`
 
+### Commit and Push to Main
 ---
 
 ## Phase 6: Import Modal UI + Plugin Wiring
@@ -647,9 +653,10 @@ This document breaks down the architecture specification into concrete, executab
 - [ ] Error states handled: empty input, parse failure, vault write failure
 - [ ] Modal can be closed at any step without side effects
 
-### Commit Message
+### Commit Message title
 `feat: implement import modal UI with paste and file input modes`
 
+### Commit and Push to Main
 ---
 
 ## Phase 7: Preview Modal UI
@@ -725,9 +732,10 @@ This document breaks down the architecture specification into concrete, executab
 - [ ] All segments remain contiguous after merge/split (no gaps/duplicates)
 - [ ] `alwaysPreview` setting correctly routes to preview modal automatically
 
-### Commit Message
+### Commit Message title
 `feat: implement preview modal with segment merge, split, and rename`
 
+### Commit and Push to Main
 ---
 
 ## Phase 8: Settings Tab
@@ -786,9 +794,10 @@ This document breaks down the architecture specification into concrete, executab
 - [ ] Folder suggest works in default folder input
 - [ ] Test connection button shows success/failure Notice
 
-### Commit Message
+### Commit Message title
 `feat: implement settings tab with all configuration options`
 
+### Commit and Push to Main
 ---
 
 ## Phase 9: JSON File Parsers (ChatGPT + Claude)
@@ -879,9 +888,10 @@ This document breaks down the architecture specification into concrete, executab
 - [ ] Format detector correctly identifies JSON formats (prioritized over paste)
 - [ ] Timestamps are correctly extracted from both formats
 
-### Commit Message
+### Commit Message title
 `feat: implement JSON file parsers for ChatGPT and Claude exports`
 
+### Commit and Push to Main
 ---
 
 ## Phase 10: Ollama Integration
@@ -961,9 +971,10 @@ This document breaks down the architecture specification into concrete, executab
 - [ ] UI shows appropriate loading and fallback messages
 - [ ] Test connection button in settings works correctly
 
-### Commit Message
+### Commit Message title
 `feat: implement optional Ollama-powered segmentation with heuristic fallback`
 
+### Commit and Push to Main
 ---
 
 ## Phase 11: Polish & Edge Cases
@@ -1056,7 +1067,7 @@ This document breaks down the architecture specification into concrete, executab
 - [ ] Plugin loads cleanly in a fresh vault with no prior configuration
 - [ ] All previously passing acceptance criteria from phases 1-10 still pass
 
-### Commit Message
+### Commit Message title 
 `fix: handle edge cases, finalize styling, and polish error handling`
 
 ---
