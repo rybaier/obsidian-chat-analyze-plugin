@@ -178,12 +178,12 @@ This document breaks down the architecture specification into concrete, executab
 
 ### Tasks
 
-- [ ] **3.1** Create `src/parsers/parser-interface.ts`
+- [x] **3.1** Create `src/parsers/parser-interface.ts`
   - `InputFormat` discriminated union type (source + method combinations)
   - `IChatParser` interface: `format`, `canParse(input)`, `parse(input, options?)`
   - `ParseOptions` interface: `conversationId?`, `branchStrategy?`
 
-- [ ] **3.2** Create `src/parsers/code-block-guard.ts`
+- [x] **3.2** Create `src/parsers/code-block-guard.ts`
   - `maskCodeBlocks(input: string): { masked: string; blocks: Map<string, string> }`
     - Regex to find all fenced code blocks (triple backtick with optional language tag)
     - Replace each block's content with `__CODE_BLOCK_{n}__` placeholder
@@ -195,7 +195,7 @@ This document breaks down the architecture specification into concrete, executab
   - Must handle code blocks at start/end of input
   - Must handle empty code blocks
 
-- [ ] **3.3** Create `src/parsers/chatgpt-paste-parser.ts`
+- [x] **3.3** Create `src/parsers/chatgpt-paste-parser.ts`
   - Implements `IChatParser`
   - `canParse()`: check for `You said:` + `ChatGPT said:` patterns (case-insensitive)
   - Also support variant: `You:` / `ChatGPT:`
@@ -209,14 +209,14 @@ This document breaks down the architecture specification into concrete, executab
     7. Filter empty messages, add parse warnings for any
     8. Construct and return `ParsedConversation`
 
-- [ ] **3.4** Create `src/parsers/claude-paste-parser.ts`
+- [x] **3.4** Create `src/parsers/claude-paste-parser.ts`
   - Implements `IChatParser`
   - `canParse()`: check for `Human:` + `Assistant:` or `Claude:` patterns
   - `parse()`: same flow as ChatGPT paste parser with Claude-specific role labels
   - Map roles: Human -> `user`, Assistant/Claude -> `assistant`
   - Filter out any tool-role or system-role messages. Only retain user and assistant messages
 
-- [ ] **3.5** Create `src/parsers/markdown-parser.ts`
+- [x] **3.5** Create `src/parsers/markdown-parser.ts`
   - Generic fallback parser
   - `canParse()`: always returns `true` (lowest priority)
   - `parse()`: try to detect any role-prefixed pattern (checked in order):
@@ -228,7 +228,7 @@ This document breaks down the architecture specification into concrete, executab
     - If no speaker pattern detected, entire input becomes a single message
   - Add parse warning if falling back to single-message mode
 
-- [ ] **3.6** Create `src/parsers/format-detector.ts`
+- [x] **3.6** Create `src/parsers/format-detector.ts`
   - `detectFormat(input: string): InputFormat`
   - Priority-ordered detection:
     1. JSON structure check (try `JSON.parse`, look for `mapping` or `chat_messages` keys)
@@ -237,7 +237,7 @@ This document breaks down the architecture specification into concrete, executab
     4. Generic markdown (fallback)
   - Returns the `InputFormat` discriminant
 
-- [ ] **3.7** Create `src/parsers/index.ts`
+- [x] **3.7** Create `src/parsers/index.ts`
   - `getAllParsers(): IChatParser[]` -- returns ordered parser list
   - `parseInput(input: string, options?: ParseOptions): ParsedConversation`
     - Calls `detectFormat()`, finds matching parser, calls `parse()`
@@ -256,13 +256,13 @@ This document breaks down the architecture specification into concrete, executab
 | `src/parsers/index.ts` | Registry + barrel exports |
 
 ### Acceptance Criteria
-- [ ] `npm run build` succeeds
-- [ ] ChatGPT paste parser correctly parses a sample ChatGPT conversation with "You said:" / "ChatGPT said:" format
-- [ ] Claude paste parser correctly parses a sample Claude conversation with "Human:" / "Assistant:" format
-- [ ] Code block guard prevents speaker labels inside code fences from being treated as message boundaries
-- [ ] Format detection correctly identifies ChatGPT paste, Claude paste, and generic markdown
-- [ ] Generic parser handles input with no recognizable speaker labels (single-message fallback)
-- [ ] All parsers produce valid `ParsedConversation` objects with correct `messageCount` and sequential message indices
+- [x] `npm run build` succeeds
+- [x] ChatGPT paste parser correctly parses a sample ChatGPT conversation with "You said:" / "ChatGPT said:" format
+- [x] Claude paste parser correctly parses a sample Claude conversation with "Human:" / "Assistant:" format
+- [x] Code block guard prevents speaker labels inside code fences from being treated as message boundaries
+- [x] Format detection correctly identifies ChatGPT paste, Claude paste, and generic markdown
+- [x] Generic parser handles input with no recognizable speaker labels (single-message fallback)
+- [x] All parsers produce valid `ParsedConversation` objects with correct `messageCount` and sequential message indices
 
 ### Commit Message title
 `feat: implement paste parsers with format auto-detection`
