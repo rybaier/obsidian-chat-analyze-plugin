@@ -902,7 +902,7 @@ This document breaks down the architecture specification into concrete, executab
 
 ### Tasks
 
-- [ ] **10.1** Create `src/segmentation/ollama/client.ts`
+- [x] **10.1** Create `src/segmentation/ollama/client.ts`
   - Export `OllamaClient` class
   - Constructor: receives endpoint URL
   - `healthCheck(): Promise<boolean>` -- `GET /` with 3s timeout via `requestUrl`
@@ -910,7 +910,7 @@ This document breaks down the architecture specification into concrete, executab
   - `generate(prompt: string, model: string): Promise<string>` -- `POST /api/generate` with 60s timeout
   - All methods catch errors and return sensible defaults (false for health, empty for models, throw for generate)
 
-- [ ] **10.2** Create `src/segmentation/ollama/chunker.ts`
+- [x] **10.2** Create `src/segmentation/ollama/chunker.ts`
   - Export `chunkConversation(messages: Message[], targetChars: number, overlapMessages: number): MessageChunk[]`
   - `MessageChunk` interface: `messages: Message[]`, `startIndex: number`, `endIndex: number`
   - Target: ~12,000 chars per chunk
@@ -918,7 +918,7 @@ This document breaks down the architecture specification into concrete, executab
   - Never split in the middle of a message
   - Handle conversations shorter than one chunk (return single chunk)
 
-- [ ] **10.3** Create `src/segmentation/ollama/prompts.ts`
+- [x] **10.3** Create `src/segmentation/ollama/prompts.ts`
   - Export `buildSegmentationPrompt(messages: Message[], granularity: Granularity): string`
   - Prompt structure:
     - System instruction: "You are analyzing a conversation to identify topic segments"
@@ -928,7 +928,7 @@ This document breaks down the architecture specification into concrete, executab
     - Constraint: "Only split before user messages"
     - Example output
 
-- [ ] **10.4** Create `src/segmentation/ollama/ollama-segmenter.ts`
+- [x] **10.4** Create `src/segmentation/ollama/ollama-segmenter.ts`
   - Export `segmentWithOllama(conversation: ParsedConversation, config: SegmentationConfig, endpoint: string, model: string): Promise<Segment[]>`
   - Algorithm:
     1. Health check -- if fails, throw (caller handles fallback)
@@ -940,12 +940,12 @@ This document breaks down the architecture specification into concrete, executab
     7. Generate tags using `tag-generator.ts` (not from LLM)
   - Error handling: if JSON parsing fails or indices invalid, throw (caller falls back to heuristic)
 
-- [ ] **10.5** Update `src/segmentation/segmenter.ts`
+- [x] **10.5** Update `src/segmentation/segmenter.ts`
   - Add `segmentWithFallback(conversation, config, ollamaSettings?): Promise<Segment[]>`
   - If Ollama enabled and settings provided: try `segmentWithOllama()`, fall back to heuristic on any error
   - Log fallback reason if debug logging enabled
 
-- [ ] **10.6** Update `src/ui/import-modal.ts`
+- [x] **10.6** Update `src/ui/import-modal.ts`
   - When "Use Ollama" toggle is on in Step 2, call `segmentWithFallback()` instead of `segment()`
   - Show appropriate loading message: "Consulting Ollama for enhanced segmentation..."
   - If fallback occurs, show Notice: "Ollama unavailable, using built-in analysis"
@@ -961,15 +961,15 @@ This document breaks down the architecture specification into concrete, executab
 | `src/ui/import-modal.ts` | Modify | Ollama UI integration |
 
 ### Acceptance Criteria
-- [ ] `npm run build` succeeds
-- [ ] Health check correctly detects running/stopped Ollama
-- [ ] Chunker produces valid chunks with correct overlap
-- [ ] Prompt includes numbered messages and clear JSON output instructions
-- [ ] Successful Ollama segmentation produces valid `Segment[]`
-- [ ] Invalid Ollama response triggers automatic fallback to heuristic
-- [ ] Unreachable Ollama triggers automatic fallback to heuristic
-- [ ] UI shows appropriate loading and fallback messages
-- [ ] Test connection button in settings works correctly
+- [x] `npm run build` succeeds
+- [x] Health check correctly detects running/stopped Ollama
+- [x] Chunker produces valid chunks with correct overlap
+- [x] Prompt includes numbered messages and clear JSON output instructions
+- [x] Successful Ollama segmentation produces valid `Segment[]`
+- [x] Invalid Ollama response triggers automatic fallback to heuristic
+- [x] Unreachable Ollama triggers automatic fallback to heuristic
+- [x] UI shows appropriate loading and fallback messages
+- [ ] Test connection button in settings works correctly (requires manual test)
 
 ### Commit Message title
 `feat: implement optional Ollama-powered segmentation with heuristic fallback`

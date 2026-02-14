@@ -3,7 +3,7 @@ import JSZip from 'jszip';
 import type { ParsedConversation, Segment, ImportConfig, ChatSplitterSettings } from '../types';
 import { GRANULARITY_PRESETS } from '../types';
 import { parseInput, detectFormat, listConversations, type InputFormat } from '../parsers';
-import { segment, DEFAULT_SIGNAL_WEIGHTS } from '../segmentation';
+import { segment, segmentWithFallback, DEFAULT_SIGNAL_WEIGHTS } from '../segmentation';
 import { generateNotes } from '../generators';
 import { resolveCollision } from '../generators';
 import { FolderSuggest } from './folder-suggest';
@@ -406,17 +406,34 @@ export class ImportModal extends Modal {
 		).open();
 	}
 
-	private reRunSegmentation(): void {
+	private async reRunSegmentation(): Promise<void> {
 		if (!this.conversation) return;
 
 		const config = {
 			granularity: this.importConfig.granularity,
-			method: 'heuristic' as const,
+			method: (this.importConfig.useOllama ? 'ollama' : 'heuristic') as 'heuristic' | 'ollama',
 			signalWeights: DEFAULT_SIGNAL_WEIGHTS,
 			thresholds: GRANULARITY_PRESETS[this.importConfig.granularity],
 		};
 
-		this.segments = segment(this.conversation, config, this.importConfig.tagPrefix);
+		if (this.importConfig.useOllama && this.settings.enableOllama) {
+			const ollamaSettings = {
+				endpoint: this.settings.ollamaEndpoint,
+				model: this.settings.ollamaModel,
+			};
+			const result = await segmentWithFallback(
+				this.conversation,
+				config,
+				this.importConfig.tagPrefix,
+				ollamaSettings
+			);
+			this.segments = result.segments;
+			if (result.usedFallback) {
+				new Notice('Ollama unavailable, using built-in analysis');
+			}
+		} else {
+			this.segments = segment(this.conversation, config, this.importConfig.tagPrefix);
+		}
 
 		const summaryEl = this.contentEl.querySelector('.chat-splitter-summary-card p');
 		if (summaryEl) {

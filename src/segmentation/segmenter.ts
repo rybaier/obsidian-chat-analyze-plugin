@@ -2,6 +2,7 @@ import type { ParsedConversation, Segment, SegmentationConfig, Message } from '.
 import { scoreBoundaries } from './scorer';
 import { generateTitle } from './title-generator';
 import { generateTags } from './tag-generator';
+import { segmentWithOllama } from './ollama/ollama-segmenter';
 
 function generateId(): string {
 	return crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2, 10);
@@ -112,6 +113,40 @@ function generateSummary(messages: Message[]): string {
 	}
 
 	return parts.join(' -- ') || 'No summary available.';
+}
+
+export interface OllamaSettings {
+	endpoint: string;
+	model: string;
+}
+
+export async function segmentWithFallback(
+	conversation: ParsedConversation,
+	config: SegmentationConfig,
+	tagPrefix: string = 'ai-chat',
+	ollamaSettings?: OllamaSettings
+): Promise<{ segments: Segment[]; usedFallback: boolean }> {
+	if (ollamaSettings) {
+		try {
+			const segments = await segmentWithOllama(
+				conversation,
+				config,
+				ollamaSettings.endpoint,
+				ollamaSettings.model,
+				tagPrefix
+			);
+			return { segments, usedFallback: false };
+		} catch (err) {
+			console.log(
+				`[Chat Splitter] Ollama segmentation failed, falling back to heuristic: ${err instanceof Error ? err.message : String(err)}`
+			);
+		}
+	}
+
+	return {
+		segments: segment(conversation, config, tagPrefix),
+		usedFallback: true,
+	};
 }
 
 function allSegmentsMeetMinimum(
