@@ -6,6 +6,8 @@ const STRONG_PATTERNS = [
 
 const MODERATE_PATTERNS = [
 	/^(how (do|can|should)|why (do|does|is)|is (it|there)|tell me about)\b/i,
+	/^what about\b/i,
+	/^(ok\s+)?(can you help|could you help|help me)\b/i,
 ];
 
 export function scoreReintroduction(message: Message): number {

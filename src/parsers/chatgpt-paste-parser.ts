@@ -65,7 +65,13 @@ export class ChatGPTPasteParser implements IChatParser {
 		let index = 0;
 
 		for (const raw of rawMessages) {
-			const content = unmaskCodeBlocks(raw.lines.join('\n').trim(), blocks);
+			let joined = raw.lines.join('\n').trim();
+
+			if (raw.role === 'assistant') {
+				joined = joined.replace(/^Thought for [\w\s]+\n*/i, '').trim();
+			}
+
+			const content = unmaskCodeBlocks(joined, blocks);
 			if (!content) {
 				warnings.push(`Empty ${raw.role} message at position ${index} was skipped`);
 				continue;

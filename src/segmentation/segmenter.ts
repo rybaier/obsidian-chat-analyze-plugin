@@ -106,9 +106,17 @@ function generateSummary(messages: Message[]): string {
 	}
 
 	if (firstAssistant) {
-		const response = firstAssistant.plainText.split(/[.!?]/)[0].slice(0, 100).trim();
-		if (response) {
-			parts.push(response + '.');
+		const text = firstAssistant.plainText
+			.replace(/(https?:)?\/\/\S+/g, '')
+			.trim();
+		const lines = text.split('\n').filter(l => l.trim().length > 5);
+		const firstLine = lines[0] || '';
+		const sentenceMatch = firstLine.match(/^[^.!?]*[.!?]/);
+		const response = sentenceMatch
+			? sentenceMatch[0].trim()
+			: firstLine.slice(0, 100).trim();
+		if (response && response.length > 5) {
+			parts.push(response);
 		}
 	}
 

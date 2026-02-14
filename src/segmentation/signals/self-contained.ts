@@ -1,8 +1,8 @@
 import type { Message } from '../../types';
 
-const MIN_ASSISTANT_WORDS = 500;
+const MIN_ASSISTANT_WORDS = 300;
 const MIN_HEADINGS = 2;
-const MIN_LIST_ITEMS = 5;
+const MIN_LIST_ITEMS = 3;
 const MAX_NEXT_USER_WORDS = 100;
 
 export function scoreSelfContained(assistantMessage: Message, nextUserMessage: Message): number {

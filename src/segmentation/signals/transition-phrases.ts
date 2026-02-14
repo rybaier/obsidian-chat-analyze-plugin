@@ -8,6 +8,9 @@ const STRONG_PATTERNS = [
 
 const MODERATE_PATTERNS = [
 	/^(now|next|also|another)\b.*\?/i,
+	/^(ok\s+)?(let'?s|can we|i want to)\s+(explore|create|look at|go|try|start|build|make|do|set up|work on)\b/i,
+	/^(ok\s+)?(perfect|great|thanks?|thank you)[\s,.!]*(can you|could you|let'?s|now)\b/i,
+	/^(ok\s+)?(perfect|great|thanks?|thank you)[\s,.!]+[\w\s,]*\b(can you|could you|help|let'?s)\b/i,
 ];
 
 export function scoreTransitionPhrases(message: Message): number {

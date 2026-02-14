@@ -25,7 +25,7 @@ export function generateTitle(messages: Message[]): string {
 	if (sentence.length > 0) {
 		const titled = toTitleCase(sentence);
 		if (titled.length <= MAX_TITLE_LENGTH) return titled;
-		return titled.slice(0, MAX_TITLE_LENGTH - 3) + '...';
+		return truncateAtWord(titled, MAX_TITLE_LENGTH);
 	}
 
 	return generateFromKeywords(messages);
@@ -59,6 +59,33 @@ function generateFromKeywords(messages: Message[]): string {
 	return toTitleCase(sorted.join(' '));
 }
 
+function truncateAtWord(text: string, maxLength: number): string {
+	if (text.length <= maxLength) return text;
+	const truncated = text.slice(0, maxLength);
+	const lastSpace = truncated.lastIndexOf(' ');
+	if (lastSpace > maxLength * 0.5) {
+		return truncated.slice(0, lastSpace);
+	}
+	return truncated;
+}
+
+const MINOR_WORDS = new Set([
+	'a', 'an', 'the', 'and', 'but', 'or', 'for', 'nor', 'on', 'at',
+	'to', 'by', 'of', 'in', 'is', 'it', 'vs', 'with', 'as', 'if',
+]);
+
 function toTitleCase(str: string): string {
-	return str.replace(/\b\w/g, c => c.toUpperCase());
+	return str
+		.split(/\s+/)
+		.map((word, i) => {
+			if (word === word.toUpperCase() && word.length >= 2 && /^[A-Z]+$/.test(word)) {
+				return word;
+			}
+			const lower = word.toLowerCase();
+			if (i === 0 || !MINOR_WORDS.has(lower)) {
+				return lower.charAt(0).toUpperCase() + lower.slice(1);
+			}
+			return lower;
+		})
+		.join(' ');
 }

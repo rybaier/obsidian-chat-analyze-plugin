@@ -43,7 +43,7 @@ export interface SegmentationConfig {
 }
 
 export const GRANULARITY_PRESETS: Record<Granularity, GranularityThresholds> = {
-	coarse: { confidenceThreshold: 0.70, minMessages: 8, minWords: 500 },
-	medium: { confidenceThreshold: 0.50, minMessages: 4, minWords: 200 },
-	fine:   { confidenceThreshold: 0.35, minMessages: 2, minWords: 80 },
+	coarse: { confidenceThreshold: 0.55, minMessages: 8, minWords: 500 },
+	medium: { confidenceThreshold: 0.40, minMessages: 4, minWords: 200 },
+	fine:   { confidenceThreshold: 0.30, minMessages: 2, minWords: 80 },
 };
