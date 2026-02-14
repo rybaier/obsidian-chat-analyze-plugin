@@ -12,5 +12,8 @@ data.json
 # Test build artifacts
 test-*.cjs
 
+# Claude Code
+CLAUDE.md
+
 # OS
 .DS_Store
