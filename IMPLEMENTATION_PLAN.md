@@ -808,7 +808,7 @@ This document breaks down the architecture specification into concrete, executab
 
 ### Tasks
 
-- [ ] **9.1** Create `src/parsers/chatgpt-json-parser.ts`
+- [x] **9.1** Create `src/parsers/chatgpt-json-parser.ts`
   - Implements `IChatParser`
   - `canParse()`: check for array with objects containing `mapping` key, or single object with `mapping`
   - `parse()`:
@@ -834,7 +834,7 @@ This document breaks down the architecture specification into concrete, executab
     9. Build `ParsedConversation`
   - Export `listConversations(json: string): Array<{ id: string; title: string; messageCount: number }>` for multi-conversation file selection UI
 
-- [ ] **9.2** Create `src/parsers/claude-json-parser.ts`
+- [x] **9.2** Create `src/parsers/claude-json-parser.ts`
   - Implements `IChatParser`
   - `canParse()`: check for `chat_messages` array with objects containing `sender` field
   - `parse()`:
@@ -849,17 +849,17 @@ This document breaks down the architecture specification into concrete, executab
        - Handle `attachments` array
     5. Build `ParsedConversation`
 
-- [ ] **9.3** Update `src/parsers/format-detector.ts`
+- [x] **9.3** Update `src/parsers/format-detector.ts`
   - Add JSON structure detection (already stubbed in Phase 3):
     - `mapping` key -> ChatGPT JSON
     - `chat_messages` key -> Claude JSON
   - Ensure JSON detection takes priority over paste detection
 
-- [ ] **9.4** Update `src/parsers/index.ts`
+- [x] **9.4** Update `src/parsers/index.ts`
   - Register new parsers in the parser list
   - Ensure priority order: ChatGPT JSON > Claude JSON > ChatGPT paste > Claude paste > Generic
 
-- [ ] **9.5** Update `src/ui/import-modal.ts`
+- [x] **9.5** Update `src/ui/import-modal.ts`
   - File mode: handle ZIP files using jszip
     - `import JSZip from 'jszip'`
     - Load ZIP, find `conversations.json` inside
@@ -879,14 +879,14 @@ This document breaks down the architecture specification into concrete, executab
 | `src/ui/import-modal.ts` | Modify | ZIP handling + conversation selector |
 
 ### Acceptance Criteria
-- [ ] `npm run build` succeeds
-- [ ] ChatGPT JSON parser correctly handles the tree structure (walks `current_node` branch)
-- [ ] ChatGPT JSON parser skips null/empty nodes with parse warnings
-- [ ] Claude JSON parser handles both flat `chat_messages` and nested structures
-- [ ] ZIP files are extracted and `conversations.json` is found and parsed
-- [ ] Multi-conversation files show a selection dropdown
-- [ ] Format detector correctly identifies JSON formats (prioritized over paste)
-- [ ] Timestamps are correctly extracted from both formats
+- [x] `npm run build` succeeds
+- [x] ChatGPT JSON parser correctly handles the tree structure (walks `current_node` branch)
+- [x] ChatGPT JSON parser skips null/empty nodes with parse warnings
+- [x] Claude JSON parser handles both flat `chat_messages` and nested structures
+- [x] ZIP files are extracted and `conversations.json` is found and parsed
+- [x] Multi-conversation files show a selection dropdown
+- [x] Format detector correctly identifies JSON formats (prioritized over paste)
+- [x] Timestamps are correctly extracted from both formats
 
 ### Commit Message title
 `feat: implement JSON file parsers for ChatGPT and Claude exports`

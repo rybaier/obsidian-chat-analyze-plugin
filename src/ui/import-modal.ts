@@ -1,14 +1,21 @@
 import { Modal, Setting, Notice, type App } from 'obsidian';
+import JSZip from 'jszip';
 import type { ParsedConversation, Segment, ImportConfig, ChatSplitterSettings } from '../types';
 import { GRANULARITY_PRESETS } from '../types';
-import { parseInput, detectFormat, type InputFormat } from '../parsers';
+import { parseInput, detectFormat, listConversations, type InputFormat } from '../parsers';
 import { segment, DEFAULT_SIGNAL_WEIGHTS } from '../segmentation';
 import { generateNotes } from '../generators';
-import { sanitizeFilename, resolveCollision } from '../generators/sanitize';
+import { resolveCollision } from '../generators';
 import { FolderSuggest } from './folder-suggest';
 import { PreviewModal } from './preview-modal';
 
 type InputMode = 'paste' | 'file';
+
+interface ConversationChoice {
+	id: string;
+	title: string;
+	messageCount: number;
+}
 
 export class ImportModal extends Modal {
 	private settings: ChatSplitterSettings;
@@ -21,6 +28,8 @@ export class ImportModal extends Modal {
 	private importConfig: ImportConfig;
 	private detectedFormat: InputFormat | null = null;
 	private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+	private availableConversations: ConversationChoice[] = [];
+	private selectedConversationId: string | null = null;
 
 	constructor(
 		app: App,
@@ -139,17 +148,99 @@ export class ImportModal extends Modal {
 
 			fileLabel.setText(file.name);
 
-			if (file.name.endsWith('.zip')) {
-				const buffer = await file.arrayBuffer();
-				this.rawInput = new TextDecoder().decode(buffer);
-			} else {
-				this.rawInput = await file.text();
-			}
+			try {
+				if (file.name.endsWith('.zip')) {
+					this.rawInput = await this.extractZip(file);
+				} else {
+					this.rawInput = await file.text();
+				}
 
-			this.updateFormatBadge(badge);
-			const btn = this.contentEl.querySelector('.mod-cta') as HTMLButtonElement;
-			if (btn) btn.disabled = !this.rawInput.trim();
+				this.updateFormatBadge(badge);
+				this.checkMultiConversation(badge);
+
+				const btn = this.contentEl.querySelector('.mod-cta') as HTMLButtonElement;
+				if (btn) btn.disabled = !this.rawInput.trim();
+			} catch (err) {
+				fileLabel.setText('Error reading file');
+				new Notice(`File read error: ${err instanceof Error ? err.message : String(err)}`);
+			}
 		});
+	}
+
+	private async extractZip(file: File): Promise<string> {
+		const buffer = await file.arrayBuffer();
+		const zip = await JSZip.loadAsync(buffer);
+		const jsonFiles: string[] = [];
+
+		zip.forEach((relativePath: string, entry: JSZip.JSZipObject) => {
+			if (!entry.dir && relativePath.endsWith('.json')) {
+				jsonFiles.push(relativePath);
+			}
+		});
+
+		if (jsonFiles.length === 0) {
+			throw new Error('No JSON files found in ZIP archive');
+		}
+
+		const targetFile = jsonFiles.find(f => f.includes('conversations')) || jsonFiles[0];
+		const content = await zip.file(targetFile)?.async('string');
+		if (!content) {
+			throw new Error(`Could not read ${targetFile} from ZIP archive`);
+		}
+
+		return content;
+	}
+
+	private checkMultiConversation(badge: HTMLElement): void {
+		this.availableConversations = [];
+		this.selectedConversationId = null;
+
+		if (!this.detectedFormat || this.detectedFormat.method !== 'file-json') return;
+		if (this.detectedFormat.source !== 'chatgpt') return;
+
+		try {
+			const conversations = listConversations(this.rawInput);
+			if (conversations.length > 1) {
+				this.availableConversations = conversations;
+				this.renderConversationSelector(badge);
+			}
+		} catch {
+			// Not multi-conversation, continue with single
+		}
+	}
+
+	private renderConversationSelector(badge: HTMLElement): void {
+		const existing = this.contentEl.querySelector('.chat-splitter-conv-selector');
+		if (existing) existing.remove();
+
+		const container = this.contentEl.createDiv('chat-splitter-conv-selector');
+
+		const label = container.createEl('label', { text: `${this.availableConversations.length} conversations found. Select one:` });
+		label.style.display = 'block';
+		label.style.marginBottom = '4px';
+		label.style.fontSize = 'var(--font-smaller)';
+
+		const select = container.createEl('select');
+		select.style.width = '100%';
+
+		for (const conv of this.availableConversations) {
+			const option = select.createEl('option', {
+				text: `${conv.title} (${conv.messageCount} nodes)`,
+				attr: { value: conv.id },
+			});
+			if (conv.id === this.selectedConversationId) {
+				option.selected = true;
+			}
+		}
+
+		select.addEventListener('change', () => {
+			this.selectedConversationId = select.value;
+		});
+
+		const analyzeBtn = this.contentEl.querySelector('.mod-cta');
+		if (analyzeBtn) {
+			analyzeBtn.before(container);
+		}
 	}
 
 	private updateFormatBadge(badge: HTMLElement): void {
@@ -179,7 +270,11 @@ export class ImportModal extends Modal {
 				errorEl.setText('');
 			}
 
-			this.conversation = parseInput(this.rawInput);
+			const parseOptions = this.selectedConversationId
+				? { conversationId: this.selectedConversationId }
+				: undefined;
+
+			this.conversation = parseInput(this.rawInput, parseOptions);
 
 			const config = {
 				granularity: this.importConfig.granularity,
