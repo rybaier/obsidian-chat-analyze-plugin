@@ -985,54 +985,54 @@ This document breaks down the architecture specification into concrete, executab
 
 ### Tasks
 
-- [ ] **11.1** Edge case: empty or minimal input
+- [x] **11.1** Edge case: empty or minimal input
   - Empty paste: show error "No content to analyze" immediately
   - Single message: return 1 segment, create 1 note + index
   - Two messages: return 1 segment (below minimum for splitting)
 
-- [ ] **11.2** Edge case: very large conversations
+- [x] **11.2** Edge case: very large conversations
   - Test with 500+ message conversation
   - Verify UI remains responsive during segmentation
   - If segmentation takes >1s, ensure progress indicator is visible
   - Consider `setTimeout` chunking if main thread blocks
 
-- [ ] **11.3** Edge case: conversations with only user or only assistant messages
+- [x] **11.3** Edge case: conversations with only user or only assistant messages
   - All user messages: parse normally, segment treats as single topic
   - All assistant messages: parse normally, segment treats as single topic
 
-- [ ] **11.4** Edge case: code blocks with speaker labels
+- [x] **11.4** Edge case: code blocks with speaker labels
   - Verify code block guard works for: triple backtick, quadruple backtick, tildes
   - Test: code block containing "You said:" and "Human:" text
   - Verify these are not treated as message boundaries
 
-- [ ] **11.5** Edge case: note naming and collisions
+- [x] **11.5** Edge case: note naming and collisions
   - Test importing the same conversation twice
   - Verify collision resolution appends numeric suffix
   - Test with conversation titles containing special characters: colons, slashes, quotes
 
-- [ ] **11.6** Edge case: missing/empty target folder
+- [x] **11.6** Edge case: missing/empty target folder
   - If configured folder does not exist, auto-create it
   - If folder creation fails, show error Notice
 
-- [ ] **11.7** Edge case: conversation with no detectable topic changes
+- [x] **11.7** Edge case: conversation with no detectable topic changes
   - Single-topic conversation should produce exactly 1 segment
   - Summary should reflect the entire conversation's topic
   - Index note still created with 1 segment listed
 
-- [ ] **11.8** Finalize custom callout CSS
+- [x] **11.8** Finalize custom callout CSS
   - `[!user]` callout: distinct styling from `[!assistant]`
   - `[!thinking]` callout: subtle/muted styling
   - `[!artifact]` callout: highlighted styling
   - Respect Obsidian's light/dark theme variables
   - Test in both default and popular community themes
 
-- [ ] **11.9** Accessibility pass
+- [x] **11.9** Accessibility pass
   - All buttons have meaningful text labels
   - Tab order through modal is logical
   - Error messages visible and descriptive
   - Focusable elements have focus indicators
 
-- [ ] **11.10** Debug logging review
+- [x] **11.10** Debug logging review
   - When `debugLogging` is enabled, log:
     - Format detection result
     - Parse result summary (message count, warnings)
@@ -1042,30 +1042,30 @@ This document breaks down the architecture specification into concrete, executab
   - All logs prefixed with `[Chat Splitter]`
   - No logging when debug is disabled
 
-- [ ] **11.11** Error handling audit
+- [x] **11.11** Error handling audit
   - Every `try/catch` has a meaningful error message
   - User-facing errors shown via `Notice` (not just console)
   - No unhandled promise rejections
   - Modal remains usable after recoverable errors (does not close or lock up)
 
-- [ ] **11.12** Implement conversation-level duplicate detection
+- [x] **11.12** Implement conversation-level duplicate detection
   - Before creating notes, scan vault for existing notes with matching `conversation_id` in frontmatter
   - If match found, show a prompt with three options: Overwrite existing, Skip (cancel import), Import as new (append numeric suffix to conversation title)
   - Use `vault.getMarkdownFiles()` + read frontmatter to check for matches
 
-- [ ] **11.13** Final build and load test
+- [x] **11.13** Final build and load test
   - Clean build: delete `main.js`, run `npm run build`, verify success
   - Load in fresh Obsidian vault
   - Full end-to-end test: paste import, file import, preview mode, settings persistence
   - Verify no console errors or warnings (other than debug logs)
 
 ### Acceptance Criteria
-- [ ] All edge cases listed above handled without crashes or data loss
-- [ ] Custom callout styles render correctly in both light and dark themes
-- [ ] Debug logging is comprehensive when enabled, silent when disabled
-- [ ] No unhandled errors in any user flow
-- [ ] Plugin loads cleanly in a fresh vault with no prior configuration
-- [ ] All previously passing acceptance criteria from phases 1-10 still pass
+- [x] All edge cases listed above handled without crashes or data loss
+- [x] Custom callout styles render correctly in both light and dark themes
+- [x] Debug logging is comprehensive when enabled, silent when disabled
+- [x] No unhandled errors in any user flow
+- [ ] Plugin loads cleanly in a fresh vault with no prior configuration (requires manual test)
+- [ ] All previously passing acceptance criteria from phases 1-10 still pass (requires manual test)
 
 ### Commit Message title 
 `fix: handle edge cases, finalize styling, and polish error handling`

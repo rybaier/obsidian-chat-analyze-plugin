@@ -3,12 +3,14 @@ import type { ChatSplitterSettings } from './types';
 import { DEFAULT_SETTINGS } from './types';
 import { ImportModal } from './ui/import-modal';
 import { ChatSplitterSettingTab } from './ui/settings-tab';
+import { setDebugLogging } from './utils/debug-log';
 
 export default class ChatSplitterPlugin extends Plugin {
 	settings: ChatSplitterSettings = DEFAULT_SETTINGS;
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
+		setDebugLogging(this.settings.debugLogging);
 
 		this.addCommand({
 			id: 'import-paste',
@@ -39,9 +41,11 @@ export default class ChatSplitterPlugin extends Plugin {
 
 	async loadSettings(): Promise<void> {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		setDebugLogging(this.settings.debugLogging);
 	}
 
 	async saveSettings(): Promise<void> {
 		await this.saveData(this.settings);
+		setDebugLogging(this.settings.debugLogging);
 	}
 }

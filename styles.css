@@ -130,13 +130,41 @@
 }
 
 .callout[data-callout="thinking"] {
-	--callout-color: 180, 140, 200;
+	--callout-color: 160, 130, 180;
 	--callout-icon: lucide-brain;
+}
+
+.callout[data-callout="thinking"] .callout-content {
+	opacity: 0.85;
+	font-style: italic;
 }
 
 .callout[data-callout="artifact"] {
 	--callout-color: 200, 160, 80;
 	--callout-icon: lucide-file-code;
+}
+
+/* Accessibility: focus indicators */
+.chat-splitter-import-modal button:focus-visible,
+.chat-splitter-preview-modal button:focus-visible,
+.chat-splitter-import-modal input:focus-visible,
+.chat-splitter-import-modal select:focus-visible,
+.chat-splitter-import-modal textarea:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 2px;
+}
+
+/* Conversation selector */
+.chat-splitter-conv-selector {
+	margin: 8px 0;
+}
+
+.chat-splitter-conv-selector select {
+	padding: 4px 8px;
+	border-radius: 4px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	color: var(--text-normal);
 }
 
 /* Preview Modal */

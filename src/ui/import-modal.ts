@@ -8,6 +8,7 @@ import { generateNotes } from '../generators';
 import { resolveCollision } from '../generators';
 import { FolderSuggest } from './folder-suggest';
 import { PreviewModal } from './preview-modal';
+import { debugLog } from '../utils/debug-log';
 
 type InputMode = 'paste' | 'file';
 
@@ -270,11 +271,25 @@ export class ImportModal extends Modal {
 				errorEl.setText('');
 			}
 
+			if (!this.rawInput.trim()) {
+				if (errorEl) {
+					errorEl.style.display = 'block';
+					errorEl.setText('No content to analyze');
+				}
+				return;
+			}
+
 			const parseOptions = this.selectedConversationId
 				? { conversationId: this.selectedConversationId }
 				: undefined;
 
+			debugLog('Format detected:', this.detectedFormat);
 			this.conversation = parseInput(this.rawInput, parseOptions);
+			debugLog('Parse result:', this.conversation.messageCount, 'messages,', this.conversation.parseWarnings.length, 'warnings');
+
+			if (this.conversation.parseWarnings.length > 0) {
+				debugLog('Parse warnings:', this.conversation.parseWarnings);
+			}
 
 			const config = {
 				granularity: this.importConfig.granularity,
@@ -284,6 +299,11 @@ export class ImportModal extends Modal {
 			};
 
 			this.segments = segment(this.conversation, config, this.importConfig.tagPrefix);
+			debugLog('Segmentation result:', this.segments.length, 'segments');
+			for (const seg of this.segments) {
+				debugLog(`  Segment: "${seg.title}" (${seg.messages.length} msgs, confidence: ${seg.confidence.toFixed(2)})`);
+			}
+
 			this.renderStep2();
 		} catch (err) {
 			if (errorEl) {
@@ -455,12 +475,26 @@ export class ImportModal extends Modal {
 		if (createBtn) createBtn.disabled = true;
 
 		try {
+			const existingMatch = await this.findExistingConversation(this.conversation.id);
+			if (existingMatch) {
+				const proceed = await this.promptDuplicateAction(existingMatch);
+				if (!proceed) {
+					if (createBtn) {
+						createBtn.disabled = false;
+						createBtn.setText(`Create ${this.segments.length + 1} Notes`);
+					}
+					return;
+				}
+			}
+
 			const notes = generateNotes(
 				this.conversation,
 				this.segments,
 				this.importConfig,
 				this.settings.customFrontmatter
 			);
+
+			debugLog('Generating', notes.length, 'notes');
 
 			for (let i = 0; i < notes.length; i++) {
 				if (createBtn) {
@@ -470,11 +504,12 @@ export class ImportModal extends Modal {
 				const note = notes[i];
 				const folderPath = note.path.substring(0, note.path.lastIndexOf('/'));
 
-				if (folderPath && !this.app.vault.getAbstractFileByPath(folderPath)) {
-					await this.app.vault.createFolder(folderPath);
+				if (folderPath) {
+					await this.ensureFolderExists(folderPath);
 				}
 
 				const resolvedPath = resolveCollision(note.path, this.app.vault);
+				debugLog('Creating note:', resolvedPath);
 				await this.app.vault.create(resolvedPath, note.content);
 			}
 
@@ -495,5 +530,83 @@ export class ImportModal extends Modal {
 				createBtn.setText(`Create ${this.segments.length + 1} Notes`);
 			}
 		}
+	}
+
+	private async ensureFolderExists(folderPath: string): Promise<void> {
+		if (this.app.vault.getAbstractFileByPath(folderPath)) return;
+
+		const parts = folderPath.split('/');
+		let current = '';
+		for (const part of parts) {
+			current = current ? `${current}/${part}` : part;
+			if (!this.app.vault.getAbstractFileByPath(current)) {
+				await this.app.vault.createFolder(current);
+			}
+		}
+	}
+
+	private async findExistingConversation(conversationId: string): Promise<string | null> {
+		if (!conversationId) return null;
+
+		const files = this.app.vault.getMarkdownFiles();
+		for (const file of files) {
+			const cache = this.app.metadataCache.getFileCache(file);
+			if (cache?.frontmatter?.conversation_id === conversationId) {
+				return file.path;
+			}
+		}
+		return null;
+	}
+
+	private async promptDuplicateAction(existingPath: string): Promise<boolean> {
+		return new Promise((resolve) => {
+			const modal = new DuplicateModal(this.app, existingPath, (action) => {
+				if (action === 'skip') {
+					resolve(false);
+				} else {
+					resolve(true);
+				}
+			});
+			modal.open();
+		});
+	}
+}
+
+class DuplicateModal extends Modal {
+	private existingPath: string;
+	private onAction: (action: 'skip' | 'import-new') => void;
+
+	constructor(app: App, existingPath: string, onAction: (action: 'skip' | 'import-new') => void) {
+		super(app);
+		this.existingPath = existingPath;
+		this.onAction = onAction;
+	}
+
+	onOpen(): void {
+		this.contentEl.createEl('h3', { text: 'Duplicate Conversation Found' });
+		this.contentEl.createEl('p', {
+			text: `A conversation with the same ID already exists at: ${this.existingPath}`,
+		});
+
+		const btnContainer = this.contentEl.createDiv('chat-splitter-buttons');
+
+		const skipBtn = btnContainer.createEl('button', { text: 'Cancel Import' });
+		skipBtn.addEventListener('click', () => {
+			this.onAction('skip');
+			this.close();
+		});
+
+		const importNewBtn = btnContainer.createEl('button', {
+			text: 'Import as New',
+			cls: 'mod-cta',
+		});
+		importNewBtn.addEventListener('click', () => {
+			this.onAction('import-new');
+			this.close();
+		});
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
 	}
 }
