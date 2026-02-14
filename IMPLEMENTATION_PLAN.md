@@ -559,13 +559,13 @@ This document breaks down the architecture specification into concrete, executab
 
 ### Tasks
 
-- [ ] **6.1** Create `src/ui/folder-suggest.ts`
+- [x] **6.1** Create `src/ui/folder-suggest.ts`
   - `FolderSuggest extends AbstractInputSuggest<TFolder>`
   - `getSuggestions()`: query `vault.getAllLoadedFiles()`, filter to `TFolder` instances, match against input
   - `renderSuggestion()`: display folder path
   - `selectSuggestion()`: fill input with selected path
 
-- [ ] **6.2** Create `src/ui/import-modal.ts`
+- [x] **6.2** Create `src/ui/import-modal.ts`
   - `ImportModal extends Modal`
   - Constructor: receives `app`, `plugin` (for settings), `mode` (`'paste' | 'file'`)
   - **Internal state:**
@@ -611,7 +611,7 @@ This document breaks down the architecture specification into concrete, executab
     - Show progress: "Creating... (3/7)"
     - On success: close modal, show `Notice`, open index note
 
-- [ ] **6.3** Update `styles.css`
+- [x] **6.3** Update `styles.css`
   - `.chat-splitter-import-modal` -- modal width (600px), max-height
   - `.chat-splitter-textarea` -- full width, min-height 300px, monospace
   - `.chat-splitter-format-badge` -- small pill indicator (green/orange/gray)
@@ -625,7 +625,7 @@ This document breaks down the architecture specification into concrete, executab
     - `[!thinking]` callout styling
     - `[!artifact]` callout styling
 
-- [ ] **6.4** Update `src/main.ts`
+- [x] **6.4** Update `src/main.ts`
   - Add settings loading: `loadSettings()` / `saveSettings()` methods
   - Register command: `import-paste` -- "Chat Splitter: Import from clipboard"
   - Register command: `import-file` -- "Chat Splitter: Import from file"
@@ -641,17 +641,17 @@ This document breaks down the architecture specification into concrete, executab
 | `src/main.ts` | Modify | Commands, ribbon, settings loading |
 
 ### Acceptance Criteria
-- [ ] Plugin shows ribbon icon that opens import modal
-- [ ] Both commands appear in command palette
-- [ ] Paste mode: pasting text triggers format detection badge update
-- [ ] Paste mode: clicking Analyze parses and segments, shows Step 2
-- [ ] File mode: file picker opens, selecting a file loads content
-- [ ] Step 2: all per-import settings render and are interactive
-- [ ] Step 2: changing granularity re-runs segmentation and updates summary
-- [ ] Step 2: "Create Notes" creates notes in vault, shows progress, opens index note
-- [ ] Folder suggest autocomplete works in target folder input
-- [ ] Error states handled: empty input, parse failure, vault write failure
-- [ ] Modal can be closed at any step without side effects
+- [x] Plugin shows ribbon icon that opens import modal
+- [x] Both commands appear in command palette
+- [x] Paste mode: pasting text triggers format detection badge update
+- [x] Paste mode: clicking Analyze parses and segments, shows Step 2
+- [x] File mode: file picker opens, selecting a file loads content
+- [x] Step 2: all per-import settings render and are interactive
+- [x] Step 2: changing granularity re-runs segmentation and updates summary
+- [x] Step 2: "Create Notes" creates notes in vault, shows progress, opens index note
+- [x] Folder suggest autocomplete works in target folder input
+- [x] Error states handled: empty input, parse failure, vault write failure
+- [x] Modal can be closed at any step without side effects
 
 ### Commit Message title
 `feat: implement import modal UI with paste and file input modes`

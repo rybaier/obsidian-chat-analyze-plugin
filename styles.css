@@ -1,1 +1,181 @@
 /* Chat Splitter - Plugin Styles */
+
+/* Import Modal */
+.chat-splitter-import-modal {
+	width: 600px;
+	max-height: 80vh;
+}
+
+.chat-splitter-import-modal .modal-content {
+	padding: 16px;
+}
+
+.chat-splitter-step-header h2 {
+	margin: 0 0 16px 0;
+}
+
+/* Tabs */
+.chat-splitter-tabs {
+	display: flex;
+	gap: 4px;
+	margin-bottom: 12px;
+}
+
+.chat-splitter-tabs button {
+	padding: 6px 16px;
+	border-radius: 4px;
+	cursor: pointer;
+}
+
+.chat-splitter-tabs button.is-active {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+/* Textarea */
+.chat-splitter-textarea {
+	width: 100%;
+	min-height: 300px;
+	font-family: var(--font-monospace);
+	font-size: var(--font-smaller);
+	resize: vertical;
+	margin-bottom: 8px;
+}
+
+/* Format badge */
+.chat-splitter-format-badge {
+	display: inline-block;
+	padding: 2px 8px;
+	border-radius: 10px;
+	font-size: var(--font-smallest);
+	margin-bottom: 8px;
+	background: var(--background-modifier-border);
+	color: var(--text-muted);
+}
+
+.chat-splitter-format-badge.detected {
+	background: var(--background-modifier-success);
+	color: var(--text-on-accent);
+}
+
+.chat-splitter-format-badge.unknown {
+	background: var(--background-modifier-error);
+	color: var(--text-on-accent);
+}
+
+/* File input */
+.chat-splitter-file-input {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 12px;
+}
+
+/* Summary card */
+.chat-splitter-summary-card {
+	padding: 12px;
+	margin-bottom: 16px;
+	border-radius: 8px;
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+}
+
+.chat-splitter-summary-card p {
+	margin: 0;
+	font-weight: 600;
+}
+
+/* Buttons */
+.chat-splitter-buttons {
+	display: flex;
+	justify-content: space-between;
+	margin-top: 16px;
+	padding-top: 12px;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+/* Error */
+.chat-splitter-error {
+	padding: 8px 12px;
+	border-radius: 4px;
+	background: var(--background-modifier-error);
+	color: var(--text-on-accent);
+	margin-top: 8px;
+}
+
+/* Progress */
+.chat-splitter-progress {
+	width: 100%;
+	height: 4px;
+	border-radius: 2px;
+	background: var(--background-modifier-border);
+	overflow: hidden;
+}
+
+.chat-splitter-progress-bar {
+	height: 100%;
+	background: var(--interactive-accent);
+	transition: width 200ms;
+}
+
+/* Custom callout types for rendered notes */
+.callout[data-callout="user"] {
+	--callout-color: 64, 140, 230;
+	--callout-icon: lucide-user;
+}
+
+.callout[data-callout="assistant"] {
+	--callout-color: 120, 180, 80;
+	--callout-icon: lucide-bot;
+}
+
+.callout[data-callout="thinking"] {
+	--callout-color: 180, 140, 200;
+	--callout-icon: lucide-brain;
+}
+
+.callout[data-callout="artifact"] {
+	--callout-color: 200, 160, 80;
+	--callout-icon: lucide-file-code;
+}
+
+/* Preview Modal */
+.chat-splitter-preview-modal {
+	width: 700px;
+	max-height: 85vh;
+}
+
+.chat-splitter-segment-card {
+	padding: 12px;
+	margin-bottom: 8px;
+	border-radius: 6px;
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+}
+
+.chat-splitter-segment-card .segment-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 8px;
+}
+
+.chat-splitter-segment-card .segment-actions {
+	display: flex;
+	gap: 4px;
+}
+
+.chat-splitter-segment-card .segment-actions button {
+	padding: 2px 8px;
+	font-size: var(--font-smallest);
+}
+
+.chat-splitter-segment-preview {
+	max-height: 200px;
+	overflow-y: auto;
+	font-size: var(--font-smaller);
+	color: var(--text-muted);
+	padding: 8px;
+	background: var(--background-primary);
+	border-radius: 4px;
+}
