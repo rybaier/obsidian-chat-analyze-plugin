@@ -6,6 +6,7 @@ import { segment, DEFAULT_SIGNAL_WEIGHTS } from '../segmentation';
 import { generateNotes } from '../generators';
 import { sanitizeFilename, resolveCollision } from '../generators/sanitize';
 import { FolderSuggest } from './folder-suggest';
+import { PreviewModal } from './preview-modal';
 
 type InputMode = 'paste' | 'file';
 
@@ -271,6 +272,15 @@ export class ImportModal extends Modal {
 				});
 		}
 
+		const previewLink = this.contentEl.createEl('a', {
+			text: 'Preview segments...',
+			attr: { href: '#', style: 'display: block; margin-top: 8px; font-size: var(--font-smaller);' },
+		});
+		previewLink.addEventListener('click', (e) => {
+			e.preventDefault();
+			this.openPreview();
+		});
+
 		const buttonContainer = this.contentEl.createDiv('chat-splitter-buttons');
 
 		const backBtn = buttonContainer.createEl('button', { text: 'Back' });
@@ -281,6 +291,24 @@ export class ImportModal extends Modal {
 			cls: 'mod-cta',
 		});
 		createBtn.addEventListener('click', () => this.handleCreate());
+
+		if (this.settings.alwaysPreview) {
+			this.openPreview();
+		}
+	}
+
+	private openPreview(): void {
+		if (!this.conversation) return;
+		new PreviewModal(
+			this.app,
+			this.segments,
+			this.importConfig,
+			this.conversation,
+			(editedSegments) => {
+				this.segments = editedSegments;
+				this.handleCreate();
+			}
+		).open();
 	}
 
 	private reRunSegmentation(): void {

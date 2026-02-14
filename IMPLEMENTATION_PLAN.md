@@ -667,7 +667,7 @@ This document breaks down the architecture specification into concrete, executab
 
 ### Tasks
 
-- [ ] **7.1** Create `src/ui/preview-modal.ts`
+- [x] **7.1** Create `src/ui/preview-modal.ts`
   - `PreviewModal extends Modal`
   - Constructor: receives `app`, `segments: Segment[]`, `importConfig: ImportConfig`, `conversation: ParsedConversation`, and a callback `onConfirm: (segments: Segment[]) => void`
   - **Internal state:**
@@ -697,7 +697,7 @@ This document breaks down the architecture specification into concrete, executab
     - "Merge with above" calls `mergeSegments()`, re-renders
     - Stores pre-merge state for undo
 
-- [ ] **7.2** Update `styles.css` (append)
+- [x] **7.2** Update `styles.css` (append)
   - `.chat-splitter-preview-modal` -- wider modal (700px)
   - `.chat-splitter-segment-card` -- bordered card with padding
   - `.chat-splitter-segment-title-input` -- inline editable title
@@ -708,7 +708,7 @@ This document breaks down the architecture specification into concrete, executab
   - `.chat-splitter-merge-btn` -- merge button between cards
   - `.chat-splitter-bottom-bar` -- sticky bottom with actions
 
-- [ ] **7.3** Update `src/ui/import-modal.ts`
+- [x] **7.3** Update `src/ui/import-modal.ts`
   - Wire "Preview segments..." link in Step 2 to open `PreviewModal`
   - Pass current segments and import config
   - Handle `onConfirm` callback: receive edited segments, proceed to note creation
@@ -722,15 +722,15 @@ This document breaks down the architecture specification into concrete, executab
 | `src/ui/import-modal.ts` | Modify | Wire preview modal integration |
 
 ### Acceptance Criteria
-- [ ] Preview modal opens from import modal with correct segments
-- [ ] Segment titles are editable inline (saves on blur)
-- [ ] Merge combines two adjacent segments, updates display, title defaults to first segment
-- [ ] Split opens message-level boundary picker, clicking creates two new segments
-- [ ] Undo reverts the last merge/split operation
-- [ ] "Create Notes" triggers note creation with the edited segments
-- [ ] Closing preview without creating returns to import modal
-- [ ] All segments remain contiguous after merge/split (no gaps/duplicates)
-- [ ] `alwaysPreview` setting correctly routes to preview modal automatically
+- [x] Preview modal opens from import modal with correct segments
+- [x] Segment titles are editable inline (saves on blur)
+- [x] Merge combines two adjacent segments, updates display, title defaults to first segment
+- [x] Split opens message-level boundary picker, clicking creates two new segments
+- [x] Undo reverts the last merge/split operation
+- [x] "Create Notes" triggers note creation with the edited segments
+- [x] Closing preview without creating returns to import modal
+- [x] All segments remain contiguous after merge/split (no gaps/duplicates)
+- [x] `alwaysPreview` setting correctly routes to preview modal automatically
 
 ### Commit Message title
 `feat: implement preview modal with segment merge, split, and rename`
