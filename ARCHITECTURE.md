@@ -3,7 +3,7 @@
 > **Status:** Draft - Pending Review & Approval
 > **Plugin ID:** `chat-splitter`
 > **Platform:** Obsidian (Desktop & Mobile)
-> **Last Updated:** 2026-02-11
+> **Last Updated:** 2026-02-14
 
 This document is the complete technical specification for Chat Splitter. **No implementation code should be written until this document is reviewed and approved.**
 
@@ -38,6 +38,26 @@ Users accumulate long, multi-topic AI chat sessions (ChatGPT, Claude.ai) contain
 - **Per-import configuration** since users' vault conventions are still evolving
 - **Smart defaults that auto-create notes**, with opt-in preview/adjust mode
 - **Callout-style speaker formatting** as the default rendering
+
+### Scope & Limitations (v1.0)
+
+**In scope:**
+- Paste import (ChatGPT and Claude copy-paste text)
+- File import (ChatGPT JSON export, Claude JSON export, ZIP files, markdown files)
+- ChatGPT browser extension markdown (via expanded generic parser)
+- Heuristic segmentation (offline) with optional Ollama enhancement
+- Desktop and mobile support
+
+**Deferred to post-v1.0:**
+- Shared conversation URL import (fetching from ChatGPT/Claude share links)
+- API key providers (OpenAI, Anthropic) for segmentation
+- Batch import of multiple conversations
+- Vault-aware linking suggestions to existing notes
+- Non-English transition phrase and reintroduction signal patterns
+
+**Known limitations:**
+- Segmentation signal quality is optimized for English conversations. Four of six signals (domain shift, vocabulary shift, temporal gap, self-contained) are language-agnostic and work for any language. Two signals (transition phrases, reintroduction) use English patterns only.
+- Tool call messages (Code Interpreter, web browsing, Claude tool use) are stripped during parsing. Only the final assistant response using tool output is retained.
 
 ---
 
@@ -184,7 +204,7 @@ The unified output of all parsers. Every parser, regardless of input format, mus
 ```typescript
 interface ParsedConversation {
   id: string;                      // UUID from source or generated
-  title: string;                   // Conversation title (from source or first user message)
+  title: string;                   // Fallback chain: source title, first user message (50 chars), "Untitled Chat"
   source: 'chatgpt' | 'claude' | 'markdown';
   inputMethod: 'paste' | 'file-json' | 'file-zip' | 'file-markdown';
   createdAt: Date | null;
@@ -284,7 +304,7 @@ interface Segment {
   messages: Message[];             // References to messages in this segment
   startIndex: number;              // Index of first message (inclusive)
   endIndex: number;                // Index of last message (inclusive)
-  confidence: number;              // 0-1, how confident the segmenter is in this boundary
+  confidence: number;              // Composite score of the boundary that starts this segment (1.0 for first segment)
   method: 'heuristic' | 'ollama' | 'manual';
 }
 
@@ -445,6 +465,7 @@ ChatGPT exports use a tree structure where conversations can branch. Each node i
 - Skip nodes where `message.content.parts` is empty
 - Add parse warnings for skipped nodes
 - Handle `content_type` variations: `text`, `code`, `execution_output`, `tether_browsing_display_result`, `multimodal_text`
+- Filter out messages where `author.role` is `tool` or `system` -- only retain `user` and `assistant` messages
 
 ### Claude JSON Parser
 
@@ -455,6 +476,7 @@ Claude exports contain a `chat_messages` array with simpler flat structure:
 - `created_at`: ISO timestamp
 - `attachments`: Array of file attachments
 - `content`: Array of content blocks (for newer exports with thinking/artifacts)
+- Filter out messages where `sender` is not `human` or `assistant`
 
 ### Paste Parsers (ChatGPT & Claude)
 
@@ -474,13 +496,17 @@ Line-based parsers that split on speaker label patterns:
 - Consecutive lines without a speaker label are appended to the current message
 - Leading/trailing whitespace trimmed from each message
 - Empty messages filtered out with parse warning
+- Tool-role messages (Code Interpreter results, browsing results) are filtered out during parsing; only user and assistant messages are retained
 
 ### Generic Markdown Parser
 
 Fallback parser for unrecognized formats. Treats input as a single conversation with speaker detection based on common patterns:
 - `## User` / `## Assistant` headings
+- `#### You:` / `#### ChatGPT:` headings (common browser extension format)
+- `#### Human:` / `#### Assistant:` headings (extension variant)
 - `**User:**` / `**Assistant:**` bold labels
 - `> ` blockquote alternation
+- Frontmatter with conversation metadata (title, date, model fields)
 - If no speaker pattern detected, entire input becomes a single message
 
 ---
@@ -493,7 +519,7 @@ The heuristic engine evaluates every **user-message boundary** as a potential sp
 
 #### Signal Definitions
 
-| # | Signal | File | What It Detects | Default Weight (medium) |
+| # | Signal | File | What It Detects | Weight (all granularities) |
 |---|--------|------|----------------|------------------------|
 | 1 | Transition phrases | `transition-phrases.ts` | Explicit topic change markers like "let's move on to...", "switching topics...", "now let's talk about...", "on a different note..." | 0.25 |
 | 2 | Domain shift | `domain-shift.ts` | Jaccard similarity drop on domain-specific tokens (non-stop-word tokens) between a window of messages before and after the candidate boundary | 0.20 |
@@ -501,6 +527,8 @@ The heuristic engine evaluates every **user-message boundary** as a potential sp
 | 4 | Reintroduction | `reintroduction.ts` | New-topic phrasing: "I have a question about...", "Can you help with...", "I need help with...", "What is..." at the start of a user message | 0.15 |
 | 5 | Temporal gap | `temporal-gap.ts` | Gap of >30 minutes between consecutive messages (only when timestamps are available; contributes 0.0 otherwise) | 0.10 |
 | 6 | Self-contained | `self-contained.ts` | Long structured assistant response (>500 words with headings/lists, suggesting a "deliverable") immediately followed by a short new user question | 0.10 |
+
+Signal weights are constant across all granularity levels. Granularity is controlled exclusively through the confidence threshold and minimum segment size, not through weight adjustments.
 
 #### Scoring Algorithm
 
@@ -598,7 +626,7 @@ Auto-generate tags for each segment based on domain detection patterns:
 
 - Predefined domain patterns (regex → tag mapping):
   - Code-related terms → `coding`
-  - Language-specific terms (python, javascript, etc.) → `coding/{language}`
+  - Language-specific terms (python, javascript, etc.) → `coding/{{language}}`
   - Database terms → `database`
   - API/web terms → `web`
   - Design terms → `design`
@@ -606,6 +634,8 @@ Auto-generate tags for each segment based on domain detection patterns:
   - Math/science terms → `math`
 - Tags are prefixed with the user's configured tag prefix (default: `ai-chat/`)
 - Maximum 5 tags per segment
+
+The tag prefix should not include a trailing slash. The generator always appends `/` between the prefix and tag name. If the user enters a trailing slash in settings, it is trimmed automatically.
 
 ### Ollama Integration (Optional Enhancement)
 
@@ -639,6 +669,8 @@ interface OllamaClient {
    - Response is not valid JSON
    - Response references invalid message indices
    - Generation takes >60 seconds
+
+**Partial failure behavior:** If Ollama succeeds for some chunks but fails for others, the entire Ollama segmentation is discarded and the system falls back to heuristic segmentation for the full conversation. Mixing heuristic and Ollama boundaries could produce inconsistent segment quality.
 
 #### Prompt Templates (`prompts.ts`)
 
@@ -721,6 +753,20 @@ Formats messages according to the user's chosen speaker style:
 **Assistant:** Response content
 ```
 
+**ContentBlock rendering rules (all styles):**
+- `TextBlock`: Rendered inline as markdown text
+- `CodeBlock`: Rendered as fenced code blocks with language tag preserved
+- `ThinkingBlock`: Rendered as collapsed callout: `> [!thinking]- Thinking` (always collapsed regardless of length)
+- `ArtifactBlock`: Rendered as callout: `> [!note] Artifact: {title}` with content inside, language-tagged if code
+- `ToolUseBlock`: Stripped during parsing (not rendered -- see Scope & Limitations)
+- `ImageBlock`: Rendered as `![{altText}]({url})` if URL available, or `[Image: {altText}]` placeholder if no URL
+
+**Role rendering:**
+- `user` messages: Rendered with configured speaker style
+- `assistant` messages: Rendered with configured speaker style
+- `system` messages: Filtered out of note output (rarely useful to end users)
+- `tool` messages: Filtered out during parsing (see Scope & Limitations)
+
 ### Index Note Generator (`index-note-generator.ts`)
 
 Creates one Map of Content (MOC) note per imported conversation:
@@ -763,6 +809,16 @@ Implementing JWT-based authentication with refresh tokens and middleware.
 ...
 ```
 
+### Full Transcript Note (Optional)
+
+When `keepFullTranscript` is enabled, an additional note is generated containing the entire unsplit conversation:
+
+- **Filename:** `{{date}} - {{conversation_title}} - Full Transcript`
+- **Placement:** Same folder as segment notes
+- **Frontmatter:** Same as segment notes but with `cssclasses: [chat-transcript]`, no `segment`/`segment_total`/`prev`/`next` fields, `parent` links to index note
+- **Content:** All messages formatted with the configured speaker style, no segment headers or navigation footers
+- **Index note link:** The index note includes a "Full Transcript" section linking to this note
+
 ### Link Resolver (`link-resolver.ts`)
 
 Generates wikilinks for navigation between notes:
@@ -790,22 +846,22 @@ Ensures filenames are valid across all platforms:
 
 ### Naming Convention
 
-Default template: `{date} - {conversation_title} - {topic}`
+Default template: `{{date}} - {{conversation_title}} - {{topic}}`
 
-- `{date}`: Conversation date formatted as `YYYY-MM-DD`
-- `{conversation_title}`: Original conversation title (sanitized)
-- `{topic}`: Segment topic title (sanitized)
-- Index note: `{date} - {conversation_title} - Index`
+- `{{date}}`: Conversation date formatted as `YYYY-MM-DD`
+- `{{conversation_title}}`: Original conversation title (sanitized)
+- `{{topic}}`: Segment topic title (sanitized)
+- Index note: `{{date}} - {{conversation_title}} - Index`
 
 Template is configurable in settings via `{{variable}}` syntax.
 
 ### Folder Structure
 
-Default: `AI Chats/{conversation_title}/` (nested, one folder per conversation)
+Default: `AI Chats/{{conversation_title}}/` (nested, one folder per conversation)
 
 Configurable options:
-- **Nested (default):** `{base_folder}/{conversation_title}/` — each conversation gets its own folder
-- **Flat:** `{base_folder}/` — all notes in one folder, differentiated by filename
+- **Nested (default):** `{{base_folder}}/{{conversation_title}}/` — each conversation gets its own folder
+- **Flat:** `{{base_folder}}/` — all notes in one folder, differentiated by filename
 
 ### Template Rendering (`utils/templates.ts`)
 
@@ -854,6 +910,7 @@ Available variables:
   - **Tag prefix:** Text input (default from settings)
   - **Granularity:** 3-way toggle (Coarse / Medium / Fine)
     - Changing granularity re-runs segmentation inline and updates the summary card
+    - Changing granularity discards any manual segment edits made in the preview modal (since segments are fully regenerated). If the user has previously edited segments via preview, a confirmation is shown before re-segmenting.
   - **Speaker style:** Dropdown (Callouts / Blockquotes / Bold)
   - **Keep full transcript:** Toggle — if on, also creates a single note with the complete unsplit conversation
   - **Use Ollama:** Toggle (only visible if Ollama enabled in settings and healthy)
@@ -935,7 +992,7 @@ Organized into 5 collapsible sections:
 #### 5. Advanced
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| Custom frontmatter | Textarea | (empty) | Additional YAML fields added to every note |
+| Custom frontmatter | Textarea | (empty) | Additional YAML fields added to every note. Validated as valid YAML on save; invalid input shows an error. |
 | Debug logging | Toggle | `false` | Log detailed segmentation info to console |
 
 ### Folder Suggest (`folder-suggest.ts`)
@@ -1094,6 +1151,11 @@ Phase 1 → Phase 2 → Phase 3 → Phase 9
 | 11 | **6 weighted signals with configurable granularity** | Multiple weak signals combined produce robust segmentation. Granularity presets make it accessible. Individual weights are internal (not user-facing). | Single heuristic (too brittle), User-configurable weights (too complex for most users) |
 | 12 | **Segment confidence scores** | Enables quality-based filtering and helps users understand why splits were made. Useful in preview mode. | Binary split/no-split — loses nuance |
 | 13 | **Navigation links in both frontmatter and footer** | Frontmatter enables Dataview queries and graph view connections. Footer provides in-note navigation. | Frontmatter only (requires Dataview to navigate), Footer only (not queryable) |
+| 14 | **Strip tool messages rather than rendering them** | Simplifies both parsing and rendering. Tool call details (Code Interpreter execution, browsing steps) add noise to the output notes. Users care about the final assistant response, not the intermediate tool interactions. | Render as collapsed callouts (adds complexity), Defer entirely (loses context about tool use existence) |
+| 15 | **Desktop and mobile support from v1.0** | HTML file input works on both platforms. Paste works everywhere. Shipping mobile-compatible from the start avoids a painful retrofit and reaches a larger audience. | Desktop-only first (simpler but limits reach) |
+| 16 | **English-only segmentation signals in v1.0** | Four of six signals are language-agnostic. The two English-only signals (transition phrases, reintroduction) gracefully degrade to 0.0 for non-English, leaving the other four signals to handle segmentation. Full i18n is deferred. | Add 2-3 extra languages (scope creep for v1.0), Auto-detect language and skip (adds complexity) |
+| 17 | **Defer shared URL import to post-v1.0** | URL fetching introduces CORS complexity, HTML parsing fragility, and authentication concerns. Paste and file import cover the primary use cases. URLs can be added later. | Add as Phase 12 (adds scope and risk) |
+| 18 | **Title fallback chain: source, first message, "Untitled Chat"** | Every conversation needs a title for filenames and index notes. The fallback chain ensures no empty titles while preferring the most meaningful option. | Always prompt user for title (adds friction) |
 
 ---
 
