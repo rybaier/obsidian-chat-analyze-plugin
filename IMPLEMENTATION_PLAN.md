@@ -427,7 +427,7 @@ This document breaks down the architecture specification into concrete, executab
 
 ### Tasks
 
-- [ ] **5.1** Create `src/generators/sanitize.ts`
+- [x] **5.1** Create `src/generators/sanitize.ts`
   - Export `sanitizeFilename(name: string): string`
     - Replace `/\:*?"<>|` with `-`
     - Collapse multiple spaces/dashes
@@ -438,13 +438,13 @@ This document breaks down the architecture specification into concrete, executab
     - If collision: append ` (2)`, ` (3)`, etc. before `.md`
     - Return the first non-colliding path
 
-- [ ] **5.2** Create `src/utils/templates.ts`
+- [x] **5.2** Create `src/utils/templates.ts`
   - Export `renderTemplate(template: string, variables: Record<string, string>): string`
   - Replace `{{varName}}` with corresponding value
   - Available variables: `date`, `conversation_title`, `topic`, `source`, `segment`, `segment_total`
   - Unknown variables left as-is with a console warning if debug logging enabled
 
-- [ ] **5.3** Create `src/generators/frontmatter-builder.ts`
+- [x] **5.3** Create `src/generators/frontmatter-builder.ts`
   - Export `buildFrontmatter(data: NoteFrontmatter): string`
   - Produce valid YAML between `---` delimiters
   - Properly escape string values containing colons or special characters
@@ -453,7 +453,7 @@ This document breaks down the architecture specification into concrete, executab
   - Arrays rendered in YAML flow style for tags: `[tag1, tag2]`
   - Merge custom frontmatter fields from settings (validate as valid YAML before merging; skip invalid fields with a warning)
 
-- [ ] **5.4** Create `src/generators/content-formatter.ts`
+- [x] **5.4** Create `src/generators/content-formatter.ts`
   - Export `formatMessages(messages: Message[], style: SpeakerStyle, options: { collapseLong: boolean; collapseThreshold: number; showTimestamps: boolean }): string`
   - **Callout style:**
     - User: `> [!user] User\n> content`
@@ -478,7 +478,7 @@ This document breaks down the architecture specification into concrete, executab
     - `system` messages: Filtered out of note output
     - `tool` messages: Filtered out during parsing
 
-- [ ] **5.5** Create `src/generators/link-resolver.ts`
+- [x] **5.5** Create `src/generators/link-resolver.ts`
   - Export `resolveLinks(segments: Segment[], indexNoteName: string, namingTemplate: string, variables: Record<string, string>): NoteLink[][]`
   - For each segment, compute: prev link (null for first), next link (null for last), parent link (always index note)
   - Export `renderNavigationFooter(links: NoteLink[]): string`
@@ -490,7 +490,7 @@ This document breaks down the architecture specification into concrete, executab
     > Previous: [[Prev Note]] | [[Index Note|Back to Index]] | Next: [[Next Note]]
     ```
 
-- [ ] **5.6** Create `src/generators/note-generator.ts`
+- [x] **5.6** Create `src/generators/note-generator.ts`
   - Export `generateNotes(conversation: ParsedConversation, segments: Segment[], config: ImportConfig): GeneratedNote[]`
   - Orchestration:
     1. Compute base folder path from config (nested vs flat)
@@ -510,7 +510,7 @@ This document breaks down the architecture specification into concrete, executab
        - Index note should link to this note in a "Full Transcript" section
     4. Return `GeneratedNote[]`
 
-- [ ] **5.7** Create `src/generators/index-note-generator.ts`
+- [x] **5.7** Create `src/generators/index-note-generator.ts`
   - Export `generateIndexNote(conversation: ParsedConversation, segments: Segment[], noteNames: string[], config: ImportConfig): GeneratedNote`
   - Produces the MOC note per ARCHITECTURE.md specification:
     - Frontmatter with `cssclasses: [chat-index]`, metadata
@@ -519,7 +519,7 @@ This document breaks down the architecture specification into concrete, executab
     - Topics table: segment number, wikilink, message count, tags
     - Segment summaries section with wikilinks and 1-2 line descriptions
 
-- [ ] **5.8** Create `src/generators/index.ts`
+- [x] **5.8** Create `src/generators/index.ts`
   - Barrel re-exports for all generator functions
 
 ### Files Created
@@ -535,15 +535,15 @@ This document breaks down the architecture specification into concrete, executab
 | `src/generators/index.ts` | Barrel exports |
 
 ### Acceptance Criteria
-- [ ] `npm run build` succeeds
-- [ ] Generated notes contain valid YAML frontmatter (parseable by Obsidian)
-- [ ] Callout formatting produces valid Obsidian callout syntax
-- [ ] Long messages (>threshold) use collapsed callout syntax
-- [ ] Navigation footer links use correct wikilink syntax: `[[Note Name]]`
-- [ ] Index note contains a table with wikilinks to all segment notes
-- [ ] Filename sanitization removes all invalid characters
-- [ ] Collision resolution appends correct numeric suffix
-- [ ] Template rendering replaces all supported variables correctly
+- [x] `npm run build` succeeds
+- [x] Generated notes contain valid YAML frontmatter (parseable by Obsidian)
+- [x] Callout formatting produces valid Obsidian callout syntax
+- [x] Long messages (>threshold) use collapsed callout syntax
+- [x] Navigation footer links use correct wikilink syntax: `[[Note Name]]`
+- [x] Index note contains a table with wikilinks to all segment notes
+- [x] Filename sanitization removes all invalid characters
+- [x] Collision resolution appends correct numeric suffix
+- [x] Template rendering replaces all supported variables correctly
 
 ### Commit Message title
 `feat: implement note generation pipeline with frontmatter and formatting`
