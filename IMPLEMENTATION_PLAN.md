@@ -746,7 +746,7 @@ This document breaks down the architecture specification into concrete, executab
 
 ### Tasks
 
-- [ ] **8.1** Create `src/ui/settings-tab.ts`
+- [x] **8.1** Create `src/ui/settings-tab.ts`
   - `ChatSplitterSettingTab extends PluginSettingTab`
   - `display()` method builds all settings organized into 5 sections per ARCHITECTURE.md:
   - **Section 1: General**
@@ -776,7 +776,7 @@ This document breaks down the architecture specification into concrete, executab
   - Each setting's `onChange` calls `plugin.saveSettings()`
   - Conditional visibility: Ollama settings hidden when toggle off, collapse threshold hidden when collapse off
 
-- [ ] **8.2** Update `src/main.ts`
+- [x] **8.2** Update `src/main.ts`
   - Register settings tab: `this.addSettingTab(new ChatSplitterSettingTab(this.app, this))`
 
 ### Files Created/Modified
@@ -786,12 +786,12 @@ This document breaks down the architecture specification into concrete, executab
 | `src/main.ts` | Modify | Register settings tab |
 
 ### Acceptance Criteria
-- [ ] Settings tab appears under plugin settings in Obsidian
-- [ ] All 5 sections render with correct settings per ARCHITECTURE.md
-- [ ] All settings persist after changing and reloading Obsidian
-- [ ] Conditional visibility works: Ollama fields hide when toggle off
-- [ ] Number inputs validate (reject non-numeric, enforce minimums)
-- [ ] Folder suggest works in default folder input
+- [x] Settings tab appears under plugin settings in Obsidian
+- [x] All 5 sections render with correct settings per ARCHITECTURE.md
+- [x] All settings persist after changing and reloading Obsidian
+- [x] Conditional visibility works: Ollama fields hide when toggle off
+- [x] Number inputs validate (reject non-numeric, enforce minimums)
+- [x] Folder suggest works in default folder input
 - [ ] Test connection button shows success/failure Notice
 
 ### Commit Message title

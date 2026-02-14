@@ -2,6 +2,7 @@ import { Plugin } from 'obsidian';
 import type { ChatSplitterSettings } from './types';
 import { DEFAULT_SETTINGS } from './types';
 import { ImportModal } from './ui/import-modal';
+import { ChatSplitterSettingTab } from './ui/settings-tab';
 
 export default class ChatSplitterPlugin extends Plugin {
 	settings: ChatSplitterSettings = DEFAULT_SETTINGS;
@@ -28,6 +29,8 @@ export default class ChatSplitterPlugin extends Plugin {
 		this.addRibbonIcon('scissors', 'Chat Splitter: Import', () => {
 			new ImportModal(this.app, this.settings, () => this.saveSettings(), 'paste').open();
 		});
+
+		this.addSettingTab(new ChatSplitterSettingTab(this.app, this));
 	}
 
 	onunload(): void {
