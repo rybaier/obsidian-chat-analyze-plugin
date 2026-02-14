@@ -115,7 +115,7 @@ This document breaks down the architecture specification into concrete, executab
 
 ### Tasks
 
-- [ ] **2.1** Create `src/types/conversation.ts`
+- [x] **2.1** Create `src/types/conversation.ts`
   - `ChatSource` type: `'chatgpt' | 'claude' | 'markdown'`
   - `InputMethod` type: `'paste' | 'file-json' | 'file-zip' | 'file-markdown'`
   - `SpeakerRole` type: `'user' | 'assistant' | 'system' | 'tool'`
@@ -125,7 +125,7 @@ This document breaks down the architecture specification into concrete, executab
   - `Message` interface: `id`, `index`, `role`, `contentBlocks`, `plainText`, `timestamp`, `metadata`
   - `ParsedConversation` interface: `id`, `title` (fallback chain: source title, first user message truncated to 50 chars, "Untitled Chat"), `source`, `inputMethod`, `createdAt`, `updatedAt`, `messages`, `messageCount`, `parseWarnings`, `sourceMetadata`
 
-- [ ] **2.2** Create `src/types/segment.ts`
+- [x] **2.2** Create `src/types/segment.ts`
   - `Granularity` type: `'coarse' | 'medium' | 'fine'`
   - `SignalResult` interface: `signal`, `score`, `weight`, `detail?`
   - `SegmentBoundary` interface: `beforeIndex`, `score`, `signals`
@@ -134,21 +134,21 @@ This document breaks down the architecture specification into concrete, executab
   - `GranularityThresholds` interface: `confidenceThreshold`, `minMessages`, `minWords`
   - `GRANULARITY_PRESETS` constant with coarse/medium/fine threshold values
 
-- [ ] **2.3** Create `src/types/generated-note.ts`
+- [x] **2.3** Create `src/types/generated-note.ts`
   - `GeneratedNote` interface: `path`, `filename`, `content`, `frontmatter`, `isIndex`, `segmentId?`
   - `NoteFrontmatter` interface: all frontmatter fields per ARCHITECTURE.md
   - `NoteLink` interface: `type`, `target`, `display?`
 
-- [ ] **2.4** Create `src/types/settings.ts`
+- [x] **2.4** Create `src/types/settings.ts`
   - `ChatSplitterSettings` interface: all settings fields per ARCHITECTURE.md Settings Schema
   - `DEFAULT_SETTINGS` constant with all default values
   - `SpeakerStyle` type: `'callouts' | 'blockquotes' | 'bold'`
   - `FolderStructure` type: `'nested' | 'flat'`
 
-- [ ] **2.5** Create `src/types/import-config.ts`
+- [x] **2.5** Create `src/types/import-config.ts`
   - `ImportConfig` interface: per-import overrides (targetFolder, tagPrefix, granularity, speakerStyle, keepFullTranscript, useOllama, namingTemplate, folderStructure)
 
-- [ ] **2.6** Create `src/types/index.ts`
+- [x] **2.6** Create `src/types/index.ts`
   - Barrel re-exports from all type files
 
 ### Files Created
@@ -162,9 +162,9 @@ This document breaks down the architecture specification into concrete, executab
 | `src/types/index.ts` | Barrel exports |
 
 ### Acceptance Criteria
-- [ ] `npm run build` succeeds with no type errors
-- [ ] All interfaces match ARCHITECTURE.md Core Data Model and Settings Schema sections exactly
-- [ ] `GRANULARITY_PRESETS` values match ARCHITECTURE.md thresholds (coarse: 0.70/8/500, medium: 0.50/4/200, fine: 0.35/2/80)
+- [x] `npm run build` succeeds with no type errors
+- [x] All interfaces match ARCHITECTURE.md Core Data Model and Settings Schema sections exactly
+- [x] `GRANULARITY_PRESETS` values match ARCHITECTURE.md thresholds (coarse: 0.70/8/500, medium: 0.50/4/200, fine: 0.35/2/80)
 
 ### Commit Message title
 `feat: define core TypeScript interfaces and type system`
