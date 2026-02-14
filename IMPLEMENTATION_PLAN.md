@@ -280,53 +280,53 @@ This document breaks down the architecture specification into concrete, executab
 
 ### Tasks
 
-- [ ] **4.1** Create `src/utils/stop-words.ts`
+- [x] **4.1** Create `src/utils/stop-words.ts`
   - Export `STOP_WORDS: Set<string>` containing common English stop words (~150 words)
   - Export `removeStopWords(tokens: string[]): string[]`
   - Export `tokenize(text: string): string[]` -- lowercase, split on whitespace/punctuation, filter tokens <3 chars
 
-- [ ] **4.2** Create `src/segmentation/signals/transition-phrases.ts`
+- [x] **4.2** Create `src/segmentation/signals/transition-phrases.ts`
   - Export `scoreTransitionPhrases(message: Message): number` (returns 0-1)
   - Regex patterns against first 200 chars of user message `plainText`:
     - Strong (1.0): `/^(let'?s|can we|i want to)\s+(move on|switch|change|talk about|discuss)/i`, `/^(on a different|new)\s+(note|topic|subject)/i`, `/^(switching|changing|moving)\s+(to|on to)/i`
     - Moderate (0.5): `/^(now|next|also|another)/i` at sentence start followed by a question
   - Only applies to user-role messages; returns 0.0 for non-user messages
 
-- [ ] **4.3** Create `src/segmentation/signals/domain-shift.ts`
+- [x] **4.3** Create `src/segmentation/signals/domain-shift.ts`
   - Export `scoreDomainShift(messages: Message[], boundaryIndex: number, windowSize: number): number`
   - Extract domain tokens (non-stop-word, >2 chars) from messages in window before and after boundary
   - Compute Jaccard similarity: `|intersection| / |union|`
   - Return `1.0 - similarity`
   - Return 0.0 if either window has <5 domain tokens
 
-- [ ] **4.4** Create `src/segmentation/signals/vocabulary-shift.ts`
+- [x] **4.4** Create `src/segmentation/signals/vocabulary-shift.ts`
   - Export `scoreVocabularyShift(messages: Message[], boundaryIndex: number, windowSize: number): number`
   - Build term-frequency vectors for before/after windows
   - Compute cosine similarity between TF vectors
   - Return `1.0 - similarity`
   - Return 0.0 if either window is empty
 
-- [ ] **4.5** Create `src/segmentation/signals/temporal-gap.ts`
+- [x] **4.5** Create `src/segmentation/signals/temporal-gap.ts`
   - Export `scoreTemporalGap(messageBefore: Message, messageAfter: Message): number`
   - If either message lacks a timestamp, return 0.0
   - Compute gap in minutes between consecutive messages
   - Return `min(1.0, gap_minutes / 120)` -- linear scale, maxes at 2 hours
   - Threshold: gaps <30 minutes score 0.0
 
-- [ ] **4.6** Create `src/segmentation/signals/self-contained.ts`
+- [x] **4.6** Create `src/segmentation/signals/self-contained.ts`
   - Export `scoreSelfContained(assistantMessage: Message, nextUserMessage: Message): number`
   - Check assistant message: word count >500 AND (2+ headings OR 5+ list items in `plainText`)
   - Check next user message: word count <100 (suggests new topic, not follow-up)
   - Return 1.0 if both conditions met, 0.0 otherwise
 
-- [ ] **4.7** Create `src/segmentation/signals/reintroduction.ts`
+- [x] **4.7** Create `src/segmentation/signals/reintroduction.ts`
   - Export `scoreReintroduction(message: Message): number`
   - Regex patterns against user message `plainText`:
     - Strong (1.0): `/^(i have a question|can you help|i need help|could you explain|what('?s| is| are))\b/i`
     - Moderate (0.5): `/^(how (do|can|should)|why (do|does|is)|is (it|there)|tell me about)\b/i`
   - Only applies to user-role messages
 
-- [ ] **4.8** Create `src/segmentation/scorer.ts`
+- [x] **4.8** Create `src/segmentation/scorer.ts`
   - `ScoredBoundary` interface (or import from types)
   - Export `scoreBoundaries(messages: Message[], config: SegmentationConfig): ScoredBoundary[]`
   - For each user message boundary (index where `messages[i].role === 'user'` and `i > 0`):
@@ -335,7 +335,7 @@ This document breaks down the architecture specification into concrete, executab
     3. Sum for composite score
     4. Collect into `ScoredBoundary` with signal details
 
-- [ ] **4.9** Create `src/segmentation/title-generator.ts`
+- [x] **4.9** Create `src/segmentation/title-generator.ts`
   - Export `generateTitle(messages: Message[]): string`
   - Algorithm:
     1. Find first user message in segment
@@ -344,7 +344,7 @@ This document breaks down the architecture specification into concrete, executab
     4. Extract top 3 non-stop-word tokens by frequency as fallback
     5. Title case the result, cap at 50 characters
 
-- [ ] **4.10** Create `src/segmentation/tag-generator.ts`
+- [x] **4.10** Create `src/segmentation/tag-generator.ts`
   - Export `generateTags(messages: Message[], tagPrefix: string): string[]`
   - Predefined domain patterns (regex to tag mapping):
     - Code terms -> `coding`
@@ -357,7 +357,7 @@ This document breaks down the architecture specification into concrete, executab
   - Trim any trailing slash from tagPrefix before appending `/` -- prevents double-slash in generated tags
   - Prefix with `tagPrefix/`, max 5 tags per segment
 
-- [ ] **4.11** Create `src/segmentation/segmenter.ts`
+- [x] **4.11** Create `src/segmentation/segmenter.ts`
   - Export `segment(conversation: ParsedConversation, config: SegmentationConfig): Segment[]`
   - Algorithm:
     1. Call `scoreBoundaries()` to score all candidate boundaries
@@ -374,7 +374,7 @@ This document breaks down the architecture specification into concrete, executab
     - No boundaries above threshold: return single segment
     - All user messages: return single segment
 
-- [ ] **4.12** Create `src/segmentation/segment-utils.ts`
+- [x] **4.12** Create `src/segmentation/segment-utils.ts`
   - Export `mergeSegments(segments: Segment[], idA: string, idB: string): Segment[]`
     - Combine two adjacent segments, recalculate title/tags/summary
   - Export `splitSegment(segments: Segment[], segmentId: string, atMessageIndex: number): Segment[]`
@@ -382,7 +382,7 @@ This document breaks down the architecture specification into concrete, executab
   - Export `renameSegment(segments: Segment[], segmentId: string, newTitle: string): Segment[]`
     - Update title of a specific segment
 
-- [ ] **4.13** Create `src/segmentation/index.ts`
+- [x] **4.13** Create `src/segmentation/index.ts`
   - Barrel re-exports: `segment`, `mergeSegments`, `splitSegment`, `renameSegment`, signal functions
 
 ### Files Created
@@ -403,17 +403,17 @@ This document breaks down the architecture specification into concrete, executab
 | `src/segmentation/index.ts` | Barrel exports |
 
 ### Acceptance Criteria
-- [ ] `npm run build` succeeds
-- [ ] Segmenter produces valid `Segment[]` where:
+- [x] `npm run build` succeeds
+- [x] Segmenter produces valid `Segment[]` where:
   - All messages are accounted for (no gaps, no duplicates)
   - `startIndex` and `endIndex` are contiguous across segments
   - Each segment has at least `minMessages` messages
   - Each segment has a non-empty title and at least one tag
-- [ ] Different granularity levels produce different segment counts for a multi-topic conversation
-- [ ] Single-topic conversation returns exactly 1 segment
-- [ ] Conversations with <2 messages return 1 segment without error
-- [ ] `mergeSegments` correctly combines adjacent segments
-- [ ] `splitSegment` correctly creates two segments at specified boundary
+- [x] Different granularity levels produce different segment counts for a multi-topic conversation
+- [x] Single-topic conversation returns exactly 1 segment
+- [x] Conversations with <2 messages return 1 segment without error
+- [x] `mergeSegments` correctly combines adjacent segments
+- [x] `splitSegment` correctly creates two segments at specified boundary
 
 ### Commit Message title
 `feat: implement heuristic segmentation engine with 6 weighted signals`
