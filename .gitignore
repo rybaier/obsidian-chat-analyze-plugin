@@ -9,8 +9,7 @@ node_modules/
 data.json
 .obsidian/
 
-# Test artifacts
-test-*.ts
+# Test build artifacts
 test-*.cjs
 
 # OS
