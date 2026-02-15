@@ -107,9 +107,18 @@ function generateSummary(messages: Message[]): string {
 
 	if (firstAssistant) {
 		const text = firstAssistant.plainText
+			// Strip full URLs (http/https)
 			.replace(/(https?:)?\/\/\S+/g, '')
+			// Strip protocol-less URLs like ://domain.com
+			.replace(/:\/\/\S+/g, '')
+			// Strip bare domain URLs like example.com/path
+			.replace(/\b\w+\.(com|org|net|io|co|gov|edu)\b\S*/gi, '')
 			.trim();
-		const lines = text.split('\n').filter(l => l.trim().length > 5);
+		const lines = text.split('\n')
+			.map(l => l.replace(/^[\s:*\->#\u2014\u2013]+/, '').trim())
+			.filter(l => l.length >= 10)
+			// Skip markdown-syntax-only lines (headings, dividers, list markers)
+			.filter(l => !/^#{1,6}\s*$/.test(l) && !/^-{3,}$/.test(l));
 		const firstLine = lines[0] || '';
 		const sentenceMatch = firstLine.match(/^[^.!?]*[.!?]/);
 		const response = sentenceMatch

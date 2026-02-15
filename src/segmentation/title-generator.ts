@@ -2,10 +2,13 @@ import type { Message } from '../types';
 import { tokenize, removeStopWords } from '../utils/stop-words';
 
 const FILLER_PREFIXES = [
-	/^(can you|could you|please|would you|i want you to|help me|i need you to)\s+/i,
+	/^(can you|could you|please|would you|i want you to|help me|i need you to)[,;:.!?]?\s+/i,
+	/^(ok so|ok perfect|ok great|ok|perfect|great|awesome|thanks|thank you|alright so|alright|yeah so|yeah|sure|got it|so)[,;:.!?]?\s+/i,
 ];
 
-const MAX_TITLE_LENGTH = 50;
+const CONTEXTUAL_REFS = /\b(number\s+(one|two|three|four|five|six|seven|eight|nine|ten|\d+)|option\s+[a-d]|#\d+)\b\s*/gi;
+
+const MAX_TITLE_LENGTH = 72;
 
 export function generateTitle(messages: Message[]): string {
 	const firstUser = messages.find(m => m.role === 'user');
@@ -16,11 +19,23 @@ export function generateTitle(messages: Message[]): string {
 	const text = firstUser.plainText.trim();
 	let sentence = extractFirstSentence(text);
 
-	for (const pattern of FILLER_PREFIXES) {
-		sentence = sentence.replace(pattern, '');
+	// Iteratively strip filler prefixes until none match
+	let changed = true;
+	while (changed) {
+		changed = false;
+		for (const pattern of FILLER_PREFIXES) {
+			const stripped = sentence.replace(pattern, '');
+			if (stripped !== sentence) {
+				sentence = stripped.trim();
+				// Strip leading punctuation left behind (e.g. ", can you..." after "thank you" removal)
+				sentence = sentence.replace(/^[,;:.!?\-]+\s*/, '');
+				changed = true;
+			}
+		}
 	}
 
-	sentence = sentence.trim();
+	// Strip contextual references that are meaningless in isolation
+	sentence = sentence.replace(CONTEXTUAL_REFS, '').trim();
 
 	if (sentence.length > 0) {
 		const titled = toTitleCase(sentence);
@@ -35,9 +50,14 @@ function extractFirstSentence(text: string): string {
 	const firstLine = text.split('\n')[0];
 	const sentenceMatch = firstLine.match(/^[^.!?]*[.!?]/);
 	if (sentenceMatch) {
-		return sentenceMatch[0].replace(/[.!?]$/, '').trim();
+		const extracted = sentenceMatch[0].replace(/[.!?]$/, '').trim();
+		// If the first sentence is very short, try to grab more context
+		if (extracted.length < 15) {
+			return firstLine.slice(0, 120).trim();
+		}
+		return extracted;
 	}
-	return firstLine.slice(0, 80).trim();
+	return firstLine.slice(0, 120).trim();
 }
 
 function generateFromKeywords(messages: Message[]): string {
@@ -62,6 +82,21 @@ function generateFromKeywords(messages: Message[]): string {
 function truncateAtWord(text: string, maxLength: number): string {
 	if (text.length <= maxLength) return text;
 	const truncated = text.slice(0, maxLength);
+
+	// Prefer breaking at phrase boundaries: commas, semicolons, colons,
+	// or before conjunctions ("and", "or", "but")
+	const phraseBoundary = truncated.match(/^(.+)[,;:](?:\s|$)/);
+	if (phraseBoundary && phraseBoundary[1].length > maxLength * 0.4) {
+		return phraseBoundary[1].trim();
+	}
+
+	// Try breaking before a conjunction
+	const conjunctionBreak = truncated.match(/^(.+)\s+(?:and|or|but)\s+/i);
+	if (conjunctionBreak && conjunctionBreak[1].length > maxLength * 0.4) {
+		return conjunctionBreak[1].trim();
+	}
+
+	// Fall back to last word boundary
 	const lastSpace = truncated.lastIndexOf(' ');
 	if (lastSpace > maxLength * 0.5) {
 		return truncated.slice(0, lastSpace);
