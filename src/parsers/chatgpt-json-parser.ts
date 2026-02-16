@@ -1,6 +1,5 @@
 import type { ParsedConversation, Message, ContentBlock } from '../types';
 import type { IChatParser, InputFormat, ParseOptions } from './parser-interface';
-import { generateTitle } from '../segmentation/title-generator';
 
 function generateId(): string {
 	return crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2, 10);
@@ -168,6 +167,11 @@ export class ChatGPTJsonParser implements IChatParser {
 	}
 
 	private extractTitle(messages: Message[]): string {
-		return generateTitle(messages);
+		const firstUser = messages.find(m => m.role === 'user');
+		if (firstUser) {
+			const text = firstUser.plainText.slice(0, 50);
+			return text.length < firstUser.plainText.length ? text + '...' : text;
+		}
+		return 'Untitled Chat';
 	}
 }
