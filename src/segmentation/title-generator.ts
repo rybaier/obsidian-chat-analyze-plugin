@@ -183,16 +183,40 @@ function tryEntityTitle(messages: Message[]): string | null {
 	const firstUser = messages.find(m => m.role === 'user');
 	let kernel = firstUser ? extractTopicKernel(firstUser.plainText) : '';
 
-	// Remove entity names from kernel to prevent redundancy
+	// Remove entity names from kernel to prevent redundancy (fuzzy match for typos)
 	if (kernel) {
-		for (const entity of entities) {
-			kernel = kernel.replace(new RegExp(`\\b${escapeRegex(entity)}\\b,?\\s*`, 'gi'), '');
-		}
-		kernel = kernel.replace(/^[,;:\s]+|[,;:\s]+$/g, '').trim();
+		const kernelWords = kernel.split(/\s+/);
+		const cleanedWords = kernelWords.filter(word => {
+			const lower = word.replace(/[,;:.!?]+$/, '').toLowerCase();
+			// Exact match dedup
+			for (const entity of entities) {
+				if (entity.toLowerCase() === lower) return false;
+				// Fuzzy dedup: if word and entity share 80%+ of characters, treat as match
+				// Handles typos like "carriibbean" vs "Caribbean"
+				if (lower.length >= 4 && fuzzyMatch(lower, entity.toLowerCase())) return false;
+			}
+			return true;
+		});
+		kernel = cleanedWords.join(' ').replace(/^[,;:\s]+|[,;:\s]+$/g, '').trim();
+
+		// Strip generic category words that add no value alongside entities
+		kernel = kernel.replace(/\b(countries|country|options|things|ways|types|kinds|topics|items|details|aspects|features)\b/gi, '').trim();
+		kernel = kernel.replace(/\s{2,}/g, ' ').trim();
+
 		// Strip dangling verbs exposed by entity removal ("is", "are", "is one choice")
 		kernel = kernel.replace(/^(is|are|was|were)\s+(one\s+choice|an?\s+|the\s+)?/i, '').trim();
-		// Strip trailing dangling verbs ("primary airport is" -> "primary airport")
-		kernel = kernel.replace(/\s+(is|are|was|were|of|in|for|and|or|but|the)$/i, '').trim();
+		// Strip trailing dangling words ("primary airport is" -> "primary airport")
+		let prevKernel = '';
+		while (kernel !== prevKernel) {
+			prevKernel = kernel;
+			kernel = kernel.replace(/\s+(is|are|was|were|of|in|for|and|or|but|the|a|an|to|on|at|by|with|from|about)$/i, '').trim();
+		}
+		// Strip leading dangling prepositions (including if it's the entire kernel)
+		kernel = kernel.replace(/^(in|of|for|on|at|by|with|from|about|to)(\s+|$)/i, '').trim();
+		// Clean up leftover punctuation/whitespace
+		kernel = kernel.replace(/^[,;:\s]+|[,;:\s]+$/g, '').trim();
+		// If kernel is just a short noise word, drop it entirely
+		if (kernel.length <= 3) kernel = '';
 	}
 
 	// Entities already have correct casing from raw text; only title-case the kernel
@@ -212,6 +236,44 @@ function tryEntityTitle(messages: Message[]): string | null {
 
 function escapeRegex(str: string): string {
 	return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Fuzzy match two lowercased strings. Returns true if they share enough
+ * characters to be considered the same word (handles typos like doubled
+ * letters or single-char substitutions).
+ */
+function fuzzyMatch(a: string, b: string): boolean {
+	// Quick length check: if lengths differ by more than 30%, not a match
+	if (Math.abs(a.length - b.length) > Math.max(a.length, b.length) * 0.3) {
+		return false;
+	}
+	// Check if one starts with enough of the other (handles "carriibbean" vs "caribbean")
+	const shorter = a.length <= b.length ? a : b;
+	const longer = a.length <= b.length ? b : a;
+
+	// Normalize by collapsing consecutive duplicate chars ("carriibbean" -> "caribean")
+	const normA = a.replace(/(.)\1+/g, '$1');
+	const normB = b.replace(/(.)\1+/g, '$1');
+	if (normA === normB) return true;
+
+	// Check if the first 5+ chars match (prefix match)
+	const prefixLen = Math.min(5, shorter.length);
+	if (shorter.slice(0, prefixLen) === longer.slice(0, prefixLen)) {
+		// Count matching characters
+		let matches = 0;
+		const longerChars = longer.split('');
+		for (const char of shorter) {
+			const idx = longerChars.indexOf(char);
+			if (idx !== -1) {
+				matches++;
+				longerChars.splice(idx, 1);
+			}
+		}
+		return matches >= shorter.length * 0.75;
+	}
+
+	return false;
 }
 
 function extractEntities(messages: Message[]): string[] {
