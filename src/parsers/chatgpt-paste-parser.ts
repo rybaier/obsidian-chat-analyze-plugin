@@ -2,6 +2,7 @@ import type { ParsedConversation, Message, ContentBlock } from '../types';
 import type { IChatParser, InputFormat, ParseOptions } from './parser-interface';
 import { maskCodeBlocks, unmaskCodeBlocks } from './code-block-guard';
 import { parseContentBlocks } from './content-block-parser';
+import { generateTitle } from '../segmentation/title-generator';
 
 const SPEAKER_PATTERN = /^(You said|ChatGPT said|You|ChatGPT)\s*:\s*$/im;
 const THOUGHT_PATTERN = /^Thought for .*$/im;
@@ -107,11 +108,6 @@ export class ChatGPTPasteParser implements IChatParser {
 	}
 
 	private extractTitle(messages: Message[]): string {
-		const firstUser = messages.find(m => m.role === 'user');
-		if (firstUser) {
-			const text = firstUser.plainText.slice(0, 50);
-			return text.length < firstUser.plainText.length ? text + '...' : text;
-		}
-		return 'Untitled Chat';
+		return generateTitle(messages);
 	}
 }
