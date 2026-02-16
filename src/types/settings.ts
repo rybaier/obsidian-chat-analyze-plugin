@@ -29,7 +29,7 @@ export interface ChatSplitterSettings {
 
 export const DEFAULT_SETTINGS: ChatSplitterSettings = {
 	defaultFolder: 'AI Chats',
-	namingTemplate: '{{date}} - {{conversation_title}} - {{topic}}',
+	namingTemplate: '{{topic}}',
 	tagPrefix: 'ai-chat',
 	folderStructure: 'nested',
 
