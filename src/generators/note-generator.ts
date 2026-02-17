@@ -80,8 +80,8 @@ export function generateNotes(
 
 		const infoHeader = `# ${seg.title}\n\n> [!info] Segment ${i + 1} of ${segments.length} from [[${indexNoteName}]]\n> **Source:** ${conversation.source} | **Date:** ${dateStr} | **Messages:** ${seg.messages.length}`;
 
-		const messageContent = formatMessages(seg.messages, config.speakerStyle, {
-			collapseLong: true,
+		const messageContent = formatMessages(seg.messages, 'document', {
+			collapseLong: false,
 			collapseThreshold: 800,
 			showTimestamps: false,
 		});

@@ -1,5 +1,6 @@
 import { PluginSettingTab, Setting, Notice, type App } from 'obsidian';
 import type ChatSplitterPlugin from '../main';
+import type { SpeakerStyle } from '../types/settings';
 import { FolderSuggest } from './folder-suggest';
 
 export class ChatSplitterSettingTab extends PluginSettingTab {
@@ -136,12 +137,13 @@ export class ChatSplitterSettingTab extends PluginSettingTab {
 			.setName('Speaker style')
 			.setDesc('How to format speaker turns in notes')
 			.addDropdown(drop => {
+				drop.addOption('document', 'Document');
 				drop.addOption('callouts', 'Callouts');
 				drop.addOption('blockquotes', 'Blockquotes');
 				drop.addOption('bold', 'Bold');
 				drop.setValue(this.plugin.settings.speakerStyle);
 				drop.onChange(async (value) => {
-					this.plugin.settings.speakerStyle = value as 'callouts' | 'blockquotes' | 'bold';
+					this.plugin.settings.speakerStyle = value as SpeakerStyle;
 					await this.plugin.saveSettings();
 				});
 			});

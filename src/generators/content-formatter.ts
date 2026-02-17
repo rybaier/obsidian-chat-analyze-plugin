@@ -13,6 +13,10 @@ export function formatMessages(
 ): string {
 	const formatted: string[] = [];
 
+	if (style === 'document') {
+		return formatAsDocument(messages);
+	}
+
 	for (const message of messages) {
 		if (message.role === 'system' || message.role === 'tool') continue;
 
@@ -74,6 +78,35 @@ function formatBlockquote(roleLabel: string, content: string, timestamp: string)
 
 function formatBold(roleLabel: string, content: string, timestamp: string): string {
 	return `**${roleLabel}:**${timestamp} ${content}`;
+}
+
+function formatAsDocument(messages: Message[]): string {
+	const parts: string[] = [];
+	let isFirstUser = true;
+
+	for (const message of messages) {
+		if (message.role === 'system' || message.role === 'tool') continue;
+
+		if (message.role === 'user') {
+			if (isFirstUser) {
+				isFirstUser = false;
+				continue;
+			}
+			const text = message.plainText.trim();
+			const condensed = text.includes('.')
+				? text.slice(0, text.indexOf('.') + 1)
+				: text.slice(0, 100);
+			parts.push(`*Q: ${condensed}*`);
+			continue;
+		}
+
+		const content = renderContentBlocks(message.contentBlocks, 'document');
+		if (content.trim()) {
+			parts.push(content);
+		}
+	}
+
+	return parts.join('\n\n');
 }
 
 function renderContentBlocks(blocks: ContentBlock[], style: SpeakerStyle): string {

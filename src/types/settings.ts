@@ -1,4 +1,4 @@
-export type SpeakerStyle = 'callouts' | 'blockquotes' | 'bold';
+export type SpeakerStyle = 'document' | 'callouts' | 'blockquotes' | 'bold';
 
 export type FolderStructure = 'nested' | 'flat';
 
@@ -38,7 +38,7 @@ export const DEFAULT_SETTINGS: ChatSplitterSettings = {
 	minSegmentWords: 200,
 	alwaysPreview: false,
 
-	speakerStyle: 'callouts',
+	speakerStyle: 'document',
 	showTimestamps: true,
 	collapseLongMessages: true,
 	collapseThreshold: 800,
