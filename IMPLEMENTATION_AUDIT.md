@@ -1,6 +1,6 @@
 # Implementation Audit Report
 
-> **Date:** 2026-02-14
+> **Date:** 2026-02-17
 > **Scope:** All 11 implementation phases against ARCHITECTURE.md and IMPLEMENTATION_PLAN.md
 > **Build Status:** Passing (`npm run build` succeeds with zero errors)
 
@@ -22,19 +22,20 @@ The Chat Splitter Obsidian plugin has been fully implemented across all 11 plann
 
 ## 1. File Structure Audit
 
-### Status: COMPLIANT (2 undocumented additions)
+### Status: COMPLIANT (3 additions now documented)
 
 All files specified in ARCHITECTURE.md exist in the codebase. No planned files are missing.
 
-**Undocumented additions** (reasonable implementation decisions, not in original plan):
+**Post-plan additions** (reasonable implementation decisions, now documented in ARCHITECTURE.md):
 
 | File | Purpose | Justification |
 |------|---------|---------------|
 | `src/parsers/content-block-parser.ts` | Extracts TextBlock/CodeBlock from raw message text | Shared logic between paste parsers; good separation of concerns |
+| `src/generators/key-info-extractor.ts` | Extracts summary, key points, links for note header | Added post-audit; renders callout blocks above the message content separator |
 | `src/utils/debug-log.ts` | Centralized debug logging with `[Chat Splitter]` prefix | Supports `debugLogging` setting from spec; added in Phase 11 |
 
 ### Recommendation
-Update ARCHITECTURE.md File Structure section to document these two files.
+ARCHITECTURE.md has been updated to document all three files.
 
 ---
 
@@ -190,9 +191,23 @@ These cannot be verified via build alone:
 
 ---
 
-## 8. Recommendations
+## 8. Post-Audit Changes (2026-02-15 to 2026-02-17)
 
-1. **Update ARCHITECTURE.md** to document `content-block-parser.ts` and `debug-log.ts`
+The following changes were made after the initial audit on 2026-02-14:
+
+| Change | Files Affected | Description |
+|--------|---------------|-------------|
+| Title generator rewrite | `title-generator.ts` | Replaced 5-step algorithm with 4-strategy priority chain: comparison detection, entity + topic kernel (with `CAPITALIZED_EXCLUSIONS` set), cleaned first sentence, keyword fallback |
+| Fuzzy entity dedup | `title-generator.ts` | Added `fuzzyMatch()` using duplicate-char normalization + prefix/75% overlap matching to handle misspelled entity names. Strip generic category nouns from kernel. |
+| Key info extractor | `key-info-extractor.ts` (new), `note-generator.ts` | New module extracts summary, key points (from list items/headings, max 6), and links (tracking params stripped) into callout blocks above the `---` separator |
+| Naming template simplified | `settings.ts` | Default `namingTemplate` changed from `{{date}} - {{conversation_title}} - {{topic}}` to `{{topic}}` |
+| Tag domains expanded | `tag-generator.ts` | Added 6 new domain patterns: `real-estate`, `finance`, `immigration`, `travel`, `health`, `ai-ml` |
+
+---
+
+## 9. Recommendations
+
+1. **ARCHITECTURE.md synced** -- All three post-plan files and post-audit changes are now documented
 2. **Add barrel exports** for `parseContentBlocks` and Ollama utilities if testing framework is added
 3. **Manual testing** using the test fixtures (`TEST_PASTE_CONVERSATION.md`) in a real Obsidian vault
 4. **Consider unit tests** for parsers and segmentation signals as a future enhancement

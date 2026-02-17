@@ -1,11 +1,11 @@
 # Chat Splitter - Architecture Document
 
-> **Status:** Draft - Pending Review & Approval
+> **Status:** v1.0 -- Current
 > **Plugin ID:** `chat-splitter`
 > **Platform:** Obsidian (Desktop & Mobile)
-> **Last Updated:** 2026-02-14
+> **Last Updated:** 2026-02-17
 
-This document is the complete technical specification for Chat Splitter. **No implementation code should be written until this document is reviewed and approved.**
+This document is the complete technical specification for Chat Splitter.
 
 ---
 
@@ -132,6 +132,7 @@ obsidian-chat-analyze-plugin/
 │   │   ├── parser-interface.ts     # IChatParser, InputFormat, ParseOptions
 │   │   ├── format-detector.ts      # Auto-detection from content
 │   │   ├── code-block-guard.ts     # Protects code blocks during speaker detection
+│   │   ├── content-block-parser.ts # Shared text/code block extraction from raw message text
 │   │   ├── chatgpt-paste-parser.ts
 │   │   ├── chatgpt-json-parser.ts  # Includes tree walker for mapping structure
 │   │   ├── claude-paste-parser.ts
@@ -163,6 +164,7 @@ obsidian-chat-analyze-plugin/
 │   │   ├── frontmatter-builder.ts  # YAML frontmatter
 │   │   ├── content-formatter.ts    # Speaker callouts, code blocks
 │   │   ├── link-resolver.ts        # Prev/next/parent wikilinks
+│   │   ├── key-info-extractor.ts   # Extracts summary, key points, links for note header
 │   │   └── sanitize.ts             # Filename sanitization
 │   ├── ui/
 │   │   ├── import-modal.ts         # Main 2-step import wizard
@@ -171,7 +173,8 @@ obsidian-chat-analyze-plugin/
 │   │   └── folder-suggest.ts       # Folder autocomplete component
 │   └── utils/
 │       ├── templates.ts            # {{variable}} template rendering
-│       └── stop-words.ts           # English stop word list
+│       ├── stop-words.ts           # English stop word list
+│       └── debug-log.ts            # Gated console logging with [Chat Splitter] prefix
 ├── styles.css                      # Custom callout types + modal styles
 ├── manifest.json
 ├── package.json
@@ -612,26 +615,30 @@ function scoreBoundaries(
 
 #### Title Generation (`title-generator.ts`)
 
-For each segment, generate a short topic title:
+For each segment, generate a short topic title using a 4-strategy priority chain. The first strategy to produce a non-null result wins:
 
-1. Extract the first user message's first sentence (up to 80 chars)
-2. If it's a question, use a cleaned version (remove "Can you", "Please", etc.)
-3. Extract top 3 non-stop-word tokens by frequency across the segment
-4. Combine: prefer the cleaned first question; fall back to keyword summary
-5. Title case the result, cap at 50 characters
+1. **Comparison detection** -- Match patterns like "X vs Y", "X or Y", "difference between X and Y", "compare X and Y". Extracts both sides, cleans them, and produces a "Side A vs Side B" title.
+2. **Entity + topic kernel** -- Extract capitalized proper nouns from all messages (skipping words in a `CAPITALIZED_EXCLUSIONS` set of ~200 common English words). User messages are weighted 3x. Multi-word entities are merged. Fuzzy dedup handles misspellings (e.g., "carriibbean" vs "Caribbean") via duplicate-char normalization and prefix + 75% character overlap matching. Generic category nouns (countries, options, types, etc.) are stripped from the kernel. The topic kernel is extracted from the first user message's first verb phrase after stripping filler prefixes and action verb patterns, capped at 40 chars.
+3. **Cleaned first sentence** -- Strip question prefixes ("Can you", "Please", etc.) and action verb patterns from the first user message's first sentence, title-case it, cap at 72 chars.
+4. **Keyword frequency fallback** -- Top 3 non-stop-word tokens by frequency across all messages in the segment, title-cased.
 
 #### Tag Generation (`tag-generator.ts`)
 
 Auto-generate tags for each segment based on domain detection patterns:
 
-- Predefined domain patterns (regex → tag mapping):
-  - Code-related terms → `coding`
+- Predefined domain patterns (regex to tag mapping):
+  - Code-related terms (language names, syntax patterns) → `coding`
   - Language-specific terms (python, javascript, etc.) → `coding/{{language}}`
-  - Database terms → `database`
-  - API/web terms → `web`
-  - Design terms → `design`
-  - Writing/content terms → `writing`
-  - Math/science terms → `math`
+  - Database terms (sql, postgres, schema, etc.) → `database`
+  - API/web terms (api endpoint, rest, graphql, etc.) → `web`
+  - Design terms (figma, wireframe, ui/ux, etc.) → `design`
+  - Writing/content terms (essay, blog, proofread, etc.) → `writing`
+  - Real estate terms (property, mortgage, rental, etc.) → `real-estate`
+  - Finance terms (investment, portfolio, stock, etc.) → `finance`
+  - Immigration terms (citizenship, visa, residency, etc.) → `immigration`
+  - Travel terms (flight, hotel, itinerary, etc.) → `travel`
+  - Health terms (healthcare, medical, insurance, etc.) → `health`
+  - AI/ML terms (machine learning, neural network, LLM, etc.) → `ai-ml`
 - Tags are prefixed with the user's configured tag prefix (default: `ai-chat/`)
 - Maximum 5 tags per segment
 
@@ -699,17 +706,57 @@ Orchestrates the conversion from `Segment[]` to `GeneratedNote[]`:
 function generateNotes(
   conversation: ParsedConversation,
   segments: Segment[],
-  config: ImportConfig
+  config: ImportConfig,
+  customFrontmatter?: string
 ): GeneratedNote[];
 ```
 
 Steps:
 1. Resolve all note filenames (using naming template + sanitization)
-2. Build frontmatter for each segment note
+2. Build frontmatter for each segment note (merging custom frontmatter if provided)
 3. Format message content for each segment
-4. Build navigation links (prev/next/parent)
-5. Generate index note
-6. Return array of `GeneratedNote` objects ready for `vault.create()`
+4. Extract key info (summary, key points, links) for each segment
+5. Build navigation links (prev/next/parent)
+6. Generate index note
+7. Return array of `GeneratedNote` objects ready for `vault.create()`
+
+### Key Info Extractor (`key-info-extractor.ts`)
+
+Extracts structured summary information for each segment note's header area.
+
+```typescript
+interface KeyInfo {
+  summary: string;
+  keyPoints: string[];
+  links: string[];
+  tags: string[];
+}
+
+function extractKeyInfo(messages: Message[], summary: string, tags: string[]): KeyInfo;
+function renderKeyInfoBlock(keyInfo: KeyInfo): string;
+```
+
+**`extractKeyInfo`** assembles a `KeyInfo` object:
+- `summary`: passed through from the segment's auto-generated summary
+- `keyPoints`: extracted from assistant messages -- first tries markdown list items (top-level, 10+ chars), then falls back to `##`-`####` headings (5+ chars). Maximum 6 points. Markdown formatting (bold, code, links) is stripped from extracted points.
+- `links`: URLs extracted from all messages via regex, tracking parameters stripped (`utm_*`, `fbclid`, `gclid`, etc.), formatted as `[domain](url)`
+- `tags`: passed through from the segment's auto-generated tags
+
+**`renderKeyInfoBlock`** produces callout blocks:
+- `> [!abstract] Summary` -- always rendered, includes tag pills
+- `> [!note] Key Points` -- rendered only if key points exist, as a bulleted list
+- `> [!link] References` -- rendered only if links exist, as a bulleted list
+
+### Note Structure Order
+
+Each segment note is assembled in this order:
+1. YAML frontmatter
+2. `# Title` heading
+3. `> [!info]` metadata callout (segment N of M, source, date, message count)
+4. Key info block (summary, key points, links)
+5. `---` horizontal rule separator
+6. Formatted messages (using configured speaker style)
+7. Navigation footer (prev/next/parent wikilinks)
 
 ### Frontmatter Builder (`frontmatter-builder.ts`)
 
@@ -846,12 +893,12 @@ Ensures filenames are valid across all platforms:
 
 ### Naming Convention
 
-Default template: `{{date}} - {{conversation_title}} - {{topic}}`
+Default template: `{{topic}}`
 
 - `{{date}}`: Conversation date formatted as `YYYY-MM-DD`
 - `{{conversation_title}}`: Original conversation title (sanitized)
 - `{{topic}}`: Segment topic title (sanitized)
-- Index note: `{{date}} - {{conversation_title}} - Index`
+- Index note uses `Index` as the topic value
 
 Template is configurable in settings via `{{variable}}` syntax.
 
@@ -960,7 +1007,7 @@ Organized into 5 collapsible sections:
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
 | Default folder | Text + folder suggest | `AI Chats` | Base folder for imported conversations |
-| Naming template | Text | `{{date}} - {{conversation_title}} - {{topic}}` | Template for note filenames |
+| Naming template | Text | `{{topic}}` | Template for note filenames |
 | Tag prefix | Text | `ai-chat` | Prefix for auto-generated tags |
 | Folder structure | Dropdown | `Nested` | Nested (per-conversation folder) or Flat |
 
@@ -1042,7 +1089,7 @@ interface ChatSplitterSettings {
 
 const DEFAULT_SETTINGS: ChatSplitterSettings = {
   defaultFolder: 'AI Chats',
-  namingTemplate: '{{date}} - {{conversation_title}} - {{topic}}',
+  namingTemplate: '{{topic}}',
   tagPrefix: 'ai-chat',
   folderStructure: 'nested',
   defaultGranularity: 'medium',
