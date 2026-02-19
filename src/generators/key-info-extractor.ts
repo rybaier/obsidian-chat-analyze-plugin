@@ -29,7 +29,8 @@ export function extractKeyInfo(
 }
 
 function extractKeyPoints(messages: Message[]): string[] {
-	const assistantMessages = messages.filter(m => m.role === 'assistant');
+	const filtered = messages.filter(m => m.role === 'assistant');
+	const assistantMessages = filtered.length > 0 ? filtered : messages;
 	const points: string[] = [];
 
 	// Try extracting from markdown list items first
