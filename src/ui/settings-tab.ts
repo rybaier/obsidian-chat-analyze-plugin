@@ -1,5 +1,6 @@
 import { PluginSettingTab, Setting, Notice, type App } from 'obsidian';
 import type ChatSplitterPlugin from '../main';
+import type { SpeakerStyle } from '../types';
 import { FolderSuggest } from './folder-suggest';
 
 export class ChatSplitterSettingTab extends PluginSettingTab {
@@ -139,9 +140,10 @@ export class ChatSplitterSettingTab extends PluginSettingTab {
 				drop.addOption('callouts', 'Callouts');
 				drop.addOption('blockquotes', 'Blockquotes');
 				drop.addOption('bold', 'Bold');
+				drop.addOption('plain', 'Plain (no labels)');
 				drop.setValue(this.plugin.settings.speakerStyle);
 				drop.onChange(async (value) => {
-					this.plugin.settings.speakerStyle = value as 'callouts' | 'blockquotes' | 'bold';
+					this.plugin.settings.speakerStyle = value as SpeakerStyle;
 					await this.plugin.saveSettings();
 				});
 			});

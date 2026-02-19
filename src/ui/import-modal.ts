@@ -1,6 +1,6 @@
 import { Modal, Setting, Notice, type App } from 'obsidian';
 import JSZip from 'jszip';
-import type { ParsedConversation, Segment, ImportConfig, ChatSplitterSettings } from '../types';
+import type { ParsedConversation, Segment, ImportConfig, ChatSplitterSettings, SpeakerStyle } from '../types';
 import { GRANULARITY_PRESETS } from '../types';
 import { parseInput, detectFormat, listConversations, type InputFormat } from '../parsers';
 import { segment, segmentWithFallback, DEFAULT_SIGNAL_WEIGHTS } from '../segmentation';
@@ -363,9 +363,10 @@ export class ImportModal extends Modal {
 				drop.addOption('callouts', 'Callouts');
 				drop.addOption('blockquotes', 'Blockquotes');
 				drop.addOption('bold', 'Bold');
+				drop.addOption('plain', 'Plain (no labels)');
 				drop.setValue(this.importConfig.speakerStyle);
 				drop.onChange(value => {
-					this.importConfig.speakerStyle = value as 'callouts' | 'blockquotes' | 'bold';
+					this.importConfig.speakerStyle = value as SpeakerStyle;
 				});
 			});
 
