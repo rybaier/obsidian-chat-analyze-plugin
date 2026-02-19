@@ -1,4 +1,4 @@
-export type SpeakerStyle = 'callouts' | 'blockquotes' | 'bold';
+export type SpeakerStyle = 'callouts' | 'blockquotes' | 'bold' | 'plain';
 
 export type FolderStructure = 'nested' | 'flat';
 

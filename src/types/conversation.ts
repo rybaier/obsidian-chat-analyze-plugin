@@ -1,5 +1,7 @@
 export type ChatSource = 'chatgpt' | 'claude' | 'markdown';
 
+export type ContentType = 'chat' | 'document';
+
 export type InputMethod = 'paste' | 'file-json' | 'file-zip' | 'file-markdown';
 
 export type SpeakerRole = 'user' | 'assistant' | 'system' | 'tool';
@@ -73,6 +75,7 @@ export interface ParsedConversation {
 	id: string;
 	title: string;
 	source: ChatSource;
+	contentType: ContentType;
 	inputMethod: InputMethod;
 	createdAt: Date | null;
 	updatedAt: Date | null;
