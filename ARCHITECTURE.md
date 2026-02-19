@@ -3,7 +3,7 @@
 > **Status:** v1.0 -- Current
 > **Plugin ID:** `chat-splitter`
 > **Platform:** Obsidian (Desktop & Mobile)
-> **Last Updated:** 2026-02-17
+> **Last Updated:** 2026-02-18
 
 This document is the complete technical specification for Chat Splitter.
 
@@ -29,7 +29,7 @@ This document is the complete technical specification for Chat Splitter.
 
 ## Overview
 
-Users accumulate long, multi-topic AI chat sessions (ChatGPT, Claude.ai) containing valuable planning notes, decisions, research, and code snippets trapped in monolithic transcripts. Existing plugins import conversations as-is (1 conversation = 1 note). Chat Splitter's differentiator is **intelligent decomposition**: breaking a single sprawling chat into multiple organized, topic-specific Obsidian notes with bidirectional links, tags, and an index note.
+Users accumulate long, multi-topic AI chat sessions (ChatGPT, Claude.ai) containing valuable planning notes, decisions, research, and code snippets trapped in monolithic transcripts. Existing plugins import conversations as-is (1 conversation = 1 note). Chat Splitter's differentiator is **intelligent decomposition**: breaking a single sprawling chat -- or any long document -- into multiple organized, topic-specific Obsidian notes with bidirectional links, tags, and an index note.
 
 ### Key Design Principles
 
@@ -44,6 +44,7 @@ Users accumulate long, multi-topic AI chat sessions (ChatGPT, Claude.ai) contain
 **In scope:**
 - Paste import (ChatGPT and Claude copy-paste text)
 - File import (ChatGPT JSON export, Claude JSON export, ZIP files, markdown files)
+- Document import (non-chat text with headings or paragraph structure)
 - ChatGPT browser extension markdown (via expanded generic parser)
 - Heuristic segmentation (offline) with optional Ollama enhancement
 - Desktop and mobile support
@@ -205,10 +206,13 @@ obsidian-chat-analyze-plugin/
 The unified output of all parsers. Every parser, regardless of input format, must produce this structure.
 
 ```typescript
+type ContentType = 'chat' | 'document';
+
 interface ParsedConversation {
   id: string;                      // UUID from source or generated
   title: string;                   // Fallback chain: source title, first user message (50 chars), "Untitled Chat"
   source: 'chatgpt' | 'claude' | 'markdown';
+  contentType: ContentType;        // 'chat' for conversations, 'document' for non-chat text
   inputMethod: 'paste' | 'file-json' | 'file-zip' | 'file-markdown';
   createdAt: Date | null;
   updatedAt: Date | null;
@@ -503,14 +507,21 @@ Line-based parsers that split on speaker label patterns:
 
 ### Generic Markdown Parser
 
-Fallback parser for unrecognized formats. Treats input as a single conversation with speaker detection based on common patterns:
+Fallback parser for unrecognized formats. First attempts speaker detection based on common patterns:
 - `## User` / `## Assistant` headings
 - `#### You:` / `#### ChatGPT:` headings (common browser extension format)
 - `#### Human:` / `#### Assistant:` headings (extension variant)
 - `**User:**` / `**Assistant:**` bold labels
 - `> ` blockquote alternation
 - Frontmatter with conversation metadata (title, date, model fields)
-- If no speaker pattern detected, entire input becomes a single message
+
+If a speaker pattern is detected, sets `contentType: 'chat'`. If no speaker pattern is detected, the parser attempts document splitting:
+
+1. **Heading-based splitting:** Strip frontmatter, scan for `#{1-6}` headings (code blocks already masked), split at heading boundaries. Each heading section becomes a `Message` with `role: 'user'`. Sections with fewer than 10 words are skipped.
+2. **Paragraph-group fallback:** If no headings found, group consecutive paragraphs (groups of ~3, separated by double-newlines). Requires at least 4 paragraphs to attempt.
+3. **Single-message fallback:** If neither produces 2+ sections, the entire input becomes a single message.
+
+When 2+ sections are produced, sets `contentType: 'document'`; otherwise `contentType: 'chat'`.
 
 ---
 
@@ -532,6 +543,19 @@ The heuristic engine evaluates every **user-message boundary** as a potential sp
 | 6 | Self-contained | `self-contained.ts` | Long structured assistant response (>500 words with headings/lists, suggesting a "deliverable") immediately followed by a short new user question | 0.10 |
 
 Signal weights are constant across all granularity levels. Granularity is controlled exclusively through the confidence threshold and minimum segment size, not through weight adjustments.
+
+**Document signal weights:** When `contentType === 'document'`, the segmenter overrides signal weights with a document-specific profile that zeroes out chat-only signals:
+
+| Signal | Document Weight |
+|--------|----------------|
+| transition-phrases | 0.00 |
+| domain-shift | 0.50 |
+| vocabulary-shift | 0.50 |
+| reintroduction | 0.00 |
+| temporal-gap | 0.00 |
+| self-contained | 0.00 |
+
+This redistribution ensures domain and vocabulary shifts -- the only signals meaningful for documents -- can reach sufficient composite scores to trigger splits.
 
 #### Scoring Algorithm
 
@@ -644,6 +668,8 @@ Auto-generate tags for each segment based on domain detection patterns:
 
 The tag prefix should not include a trailing slash. The generator always appends `/` between the prefix and tag name. If the user enters a trailing slash in settings, it is trimmed automatically.
 
+**Document tag generation:** For documents, tags are generated once from the full text (all messages combined) and applied to every segment. This ensures domain patterns have enough keyword occurrences to meet `minMatches` thresholds, since individual document segments may contain a keyword only once. Chat segments continue to generate tags per-segment.
+
 ### Ollama Integration (Optional Enhancement)
 
 Located in `src/segmentation/ollama/`.
@@ -738,7 +764,7 @@ function renderKeyInfoBlock(keyInfo: KeyInfo): string;
 
 **`extractKeyInfo`** assembles a `KeyInfo` object:
 - `summary`: passed through from the segment's auto-generated summary
-- `keyPoints`: extracted from assistant messages -- first tries markdown list items (top-level, 10+ chars), then falls back to `##`-`####` headings (5+ chars). Maximum 6 points. Markdown formatting (bold, code, links) is stripped from extracted points.
+- `keyPoints`: extracted from assistant messages (or all messages if no assistant messages exist, e.g., documents) -- first tries markdown list items (top-level, 10+ chars), then falls back to `##`-`####` headings (5+ chars). Maximum 6 points. Markdown formatting (bold, code, links) is stripped from extracted points.
 - `links`: URLs extracted from all messages via regex, tracking parameters stripped (`utm_*`, `fbclid`, `gclid`, etc.), formatted as `[domain](url)`
 - `tags`: passed through from the segment's auto-generated tags
 
@@ -752,11 +778,13 @@ function renderKeyInfoBlock(keyInfo: KeyInfo): string;
 Each segment note is assembled in this order:
 1. YAML frontmatter
 2. `# Title` heading
-3. `> [!info]` metadata callout (segment N of M, source, date, message count)
+3. `> [!info]` metadata callout (segment N of M, source, date, message/section count)
 4. Key info block (summary, key points, links)
 5. `---` horizontal rule separator
 6. Formatted messages (using configured speaker style)
 7. Navigation footer (prev/next/parent wikilinks)
+
+For documents, the info callout uses "Section" instead of "Segment" and "Sections" instead of "Messages".
 
 ### Frontmatter Builder (`frontmatter-builder.ts`)
 
@@ -764,7 +792,7 @@ Produces YAML frontmatter from `NoteFrontmatter` interface. Key behaviors:
 - Dates formatted as `YYYY-MM-DD` for `date`, ISO 8601 for `date_imported`
 - Wikilinks in frontmatter are quoted strings: `"[[Note Name]]"`
 - Tags array uses the configured prefix
-- `cssclasses` always includes `chat-segment` (or `chat-index` for index notes)
+- `cssclasses` includes `chat-segment` or `document-segment` for segment notes (based on `contentType`), `chat-index` for index notes, `chat-transcript` or `document-transcript` for full transcript notes
 
 ### Content Formatter (`content-formatter.ts`)
 
@@ -799,6 +827,14 @@ Formats messages according to the user's chosen speaker style:
 
 **Assistant:** Response content
 ```
+
+**Plain style (no labels):**
+```markdown
+Message content here
+
+Another section of content
+```
+Renders content blocks directly with no speaker labels, callouts, or wrapping. Automatically selected for document imports. If timestamps are present, they are rendered as `<small>` below the content.
 
 **ContentBlock rendering rules (all styles):**
 - `TextBlock`: Rendered inline as markdown text
@@ -945,20 +981,25 @@ Available variables:
   - Accepts: `.json`, `.zip`, `.md`
   - Shows selected filename and detected format after selection
   - For multi-conversation JSON files (ChatGPT full export), shows a dropdown to select which conversation
+- **Quick settings** (between input area and button):
+  - **Target folder:** Text input with folder autocomplete (same as Step 2; values carry through)
+  - **Tag prefix:** Text input (same as Step 2; values carry through)
 - "Analyze" button at bottom (disabled until input provided and format detected)
 - Clicking "Analyze" triggers parsing + segmentation, then transitions to Step 2
+- For documents: badge shows "Document" instead of format details; after analysis, speaker style auto-sets to "Plain"
 
 #### Step 2: Configure & Create
 
 **Layout:**
-- **Summary card** at top: "Found X topics in Y messages" with segment titles listed
+- **Header:** "Import Chat - Step 2: Configure" (or "Import Document" for documents)
+- **Summary card** at top: "Found X topics in Y messages" (or "Y sections" for documents) with segment titles listed
 - **Per-import settings** (overriding plugin defaults for this import):
   - **Target folder:** Text input with folder autocomplete (`folder-suggest.ts`)
   - **Tag prefix:** Text input (default from settings)
   - **Granularity:** 3-way toggle (Coarse / Medium / Fine)
     - Changing granularity re-runs segmentation inline and updates the summary card
     - Changing granularity discards any manual segment edits made in the preview modal (since segments are fully regenerated). If the user has previously edited segments via preview, a confirmation is shown before re-segmenting.
-  - **Speaker style:** Dropdown (Callouts / Blockquotes / Bold)
+  - **Speaker style:** Dropdown (Callouts / Blockquotes / Bold / Plain)
   - **Keep full transcript:** Toggle — if on, also creates a single note with the complete unsplit conversation
   - **Use Ollama:** Toggle (only visible if Ollama enabled in settings and healthy)
 - **"Create N Notes" button** (primary CTA) — creates notes with current configuration
@@ -1022,7 +1063,7 @@ Organized into 5 collapsible sections:
 #### 3. Formatting
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| Speaker style | Dropdown | `Callouts` | Callouts / Blockquotes / Bold |
+| Speaker style | Dropdown | `Callouts` | Callouts / Blockquotes / Bold / Plain |
 | Show timestamps | Toggle | `true` | Include timestamps in messages (when available) |
 | Collapse long messages | Toggle | `true` | Auto-collapse messages >800 words |
 | Collapse threshold | Number | `800` | Word count threshold for collapsing |
@@ -1071,7 +1112,7 @@ interface ChatSplitterSettings {
   alwaysPreview: boolean;
 
   // Formatting
-  speakerStyle: 'callouts' | 'blockquotes' | 'bold';
+  speakerStyle: 'callouts' | 'blockquotes' | 'bold' | 'plain';
   showTimestamps: boolean;
   collapseLongMessages: boolean;
   collapseThreshold: number;
@@ -1116,7 +1157,7 @@ interface ImportConfig {
   targetFolder: string;
   tagPrefix: string;
   granularity: 'coarse' | 'medium' | 'fine';
-  speakerStyle: 'callouts' | 'blockquotes' | 'bold';
+  speakerStyle: 'callouts' | 'blockquotes' | 'bold' | 'plain';
   keepFullTranscript: boolean;
   useOllama: boolean;
   namingTemplate: string;
@@ -1124,7 +1165,7 @@ interface ImportConfig {
 }
 ```
 
-Initialized from `ChatSplitterSettings` defaults, then user may override per-import in the Import Modal Step 2.
+Initialized from `ChatSplitterSettings` defaults, then user may override per-import in the Import Modal (folder and tag prefix available in Step 1; all settings available in Step 2). For document imports, `speakerStyle` is auto-set to `'plain'` after parsing.
 
 ---
 
@@ -1143,6 +1184,7 @@ Initialized from `ChatSplitterSettings` defaults, then user may override per-imp
 | **9** | JSON file parsers (ChatGPT + Claude) | M | `chatgpt-json-parser.ts`, `claude-json-parser.ts` | Phase 3 |
 | **10** | Ollama integration | M | `src/segmentation/ollama/*.ts` | Phase 4 |
 | **11** | Polish & edge cases | M | All files | All phases |
+| **12** | Document splitting + folder/tag in Step 1 | M | `types/*.ts`, `markdown-parser.ts`, `segmenter.ts`, `content-formatter.ts`, `note-generator.ts`, `import-modal.ts`, `settings-tab.ts` | Phase 11 |
 
 ### Dependency Graph
 
@@ -1153,7 +1195,7 @@ Phase 1 → Phase 2 → Phase 3 → Phase 9
                         ↘
                Phases 3,4,5 → Phase 6 → Phase 7
                                       → Phase 8
-                              All → Phase 11
+                              All → Phase 11 → Phase 12
 ```
 
 ### External Dependencies
@@ -1203,6 +1245,11 @@ Phase 1 → Phase 2 → Phase 3 → Phase 9
 | 16 | **English-only segmentation signals in v1.0** | Four of six signals are language-agnostic. The two English-only signals (transition phrases, reintroduction) gracefully degrade to 0.0 for non-English, leaving the other four signals to handle segmentation. Full i18n is deferred. | Add 2-3 extra languages (scope creep for v1.0), Auto-detect language and skip (adds complexity) |
 | 17 | **Defer shared URL import to post-v1.0** | URL fetching introduces CORS complexity, HTML parsing fragility, and authentication concerns. Paste and file import cover the primary use cases. URLs can be added later. | Add as Phase 12 (adds scope and risk) |
 | 18 | **Title fallback chain: source, first message, "Untitled Chat"** | Every conversation needs a title for filenames and index notes. The fallback chain ensures no empty titles while preferring the most meaningful option. | Always prompt user for title (adds friction) |
+| 19 | **Document splitting via headings then paragraph groups** | Headings are the most reliable structural signal in documents. Paragraph groups provide a reasonable fallback for unstructured text. Both produce `role: 'user'` messages that flow through the existing segmentation pipeline without changes to the scorer. | Sentence-level splitting (too granular), fixed character count (ignores structure), require headings only (misses plain documents) |
+| 20 | **Document signal weights: 50/50 domain-shift + vocabulary-shift** | Chat-only signals (transition phrases, reintroduction, temporal gap, self-contained) score 0.0 on documents since there are no speaker turns. Domain and vocabulary shifts are the only meaningful signals for documents. Equal weighting lets either signal drive a split. | Keep chat weights (max composite score ~0.40, below all thresholds), add new document-specific signals (over-engineering for v1.0) |
+| 21 | **Full-text tag generation for documents** | Per-segment tag generation fails for documents because individual segments have too little text for domain patterns to reach `minMatches` thresholds (2-3 occurrences). Generating tags from the full document text and applying to all segments matches the chat experience where repeated keywords across turns satisfy the threshold. | Lower minMatches for documents (reduces precision), add document-specific patterns (maintenance burden) |
+| 22 | **Plain speaker style for documents** | Documents don't have speaker roles, so callout/blockquote/bold labels ("User:", "Assistant:") are meaningless noise. Plain style renders content directly. Auto-selected for documents but available for chats too. | Always use callouts (confusing labels on documents), strip labels only for documents (special-case logic in formatter) |
+| 23 | **Folder and tag prefix in Step 1** | These are the most commonly changed per-import settings. Surfacing them in Step 1 reduces friction -- users can set them before analysis rather than going back from Step 2. Values are shared state with Step 2. | Step 2 only (original design, extra click for common case), all settings in Step 1 (clutters the input step) |
 
 ---
 
@@ -1252,6 +1299,10 @@ These verification steps apply when implementation begins after architecture app
 | Single-topic conversation | Single segment with appropriate title |
 | Conversation with no timestamps | Temporal gap signal contributes 0.0; other signals still work |
 | Duplicate import | Prompted to overwrite/skip/import as new |
+| Document with headings | Badge shows "Document", heading-based splitting, plain formatting, document-aware labels |
+| Document without headings (4+ paragraphs) | Paragraph-group fallback, plain formatting |
+| Document without headings (<4 paragraphs) | Single-message fallback, treated as chat |
+| Document segments with domain keywords | Tags generated from full text, applied to all segments |
 
 ### Settings Persistence
 - Change every setting in the settings tab
