@@ -271,7 +271,11 @@ export class ImportModal extends Modal {
 		try {
 			const format = detectFormat(this.rawInput);
 			this.detectedFormat = format;
-			badge.setText(`${format.source} (${format.method})`);
+			if (format.source === 'markdown' && format.method === 'paste' && /^#{1,6}\s+/m.test(this.rawInput)) {
+				badge.setText('Document');
+			} else {
+				badge.setText(`${format.source} (${format.method})`);
+			}
 			badge.className = 'chat-splitter-format-badge detected';
 		} catch {
 			badge.setText('Unknown format');
@@ -308,6 +312,10 @@ export class ImportModal extends Modal {
 				debugLog('Parse warnings:', this.conversation.parseWarnings);
 			}
 
+			if (this.conversation.contentType === 'document') {
+				this.importConfig.speakerStyle = 'plain';
+			}
+
 			const config = {
 				granularity: this.importConfig.granularity,
 				method: 'heuristic' as const,
@@ -334,12 +342,15 @@ export class ImportModal extends Modal {
 		this.contentEl.empty();
 		this.step = 2;
 
+		const isDoc = this.conversation?.contentType === 'document';
 		const header = this.contentEl.createDiv('chat-splitter-step-header');
-		header.createEl('h2', { text: 'Import Chat - Step 2: Configure' });
+		header.createEl('h2', { text: isDoc ? 'Import Document - Step 2: Configure' : 'Import Chat - Step 2: Configure' });
 
 		const summary = this.contentEl.createDiv('chat-splitter-summary-card');
 		summary.createEl('p', {
-			text: `Found ${this.segments.length} topic${this.segments.length !== 1 ? 's' : ''} in ${this.conversation?.messageCount || 0} messages`,
+			text: isDoc
+				? `Found ${this.segments.length} topic${this.segments.length !== 1 ? 's' : ''} in ${this.conversation?.messageCount || 0} sections`
+				: `Found ${this.segments.length} topic${this.segments.length !== 1 ? 's' : ''} in ${this.conversation?.messageCount || 0} messages`,
 		});
 
 		const settingsContainer = this.contentEl.createDiv();
@@ -475,8 +486,9 @@ export class ImportModal extends Modal {
 
 		const summaryEl = this.contentEl.querySelector('.chat-splitter-summary-card p');
 		if (summaryEl) {
+			const unit = this.conversation.contentType === 'document' ? 'sections' : 'messages';
 			summaryEl.setText(
-				`Found ${this.segments.length} topic${this.segments.length !== 1 ? 's' : ''} in ${this.conversation.messageCount} messages`
+				`Found ${this.segments.length} topic${this.segments.length !== 1 ? 's' : ''} in ${this.conversation.messageCount} ${unit}`
 			);
 		}
 
@@ -539,7 +551,8 @@ export class ImportModal extends Modal {
 				}
 			}
 
-			new Notice(`Created ${notes.length} notes from chat conversation`);
+			const sourceLabel = this.conversation?.contentType === 'document' ? 'document' : 'chat conversation';
+			new Notice(`Created ${notes.length} notes from ${sourceLabel}`);
 			this.close();
 		} catch (err) {
 			new Notice(`Error creating notes: ${err instanceof Error ? err.message : String(err)}`);
