@@ -17,11 +17,24 @@ export const DEFAULT_SIGNAL_WEIGHTS: Record<string, number> = {
 	'self-contained': 0.10,
 };
 
+export const DOCUMENT_SIGNAL_WEIGHTS: Record<string, number> = {
+	'transition-phrases': 0.00,
+	'domain-shift': 0.50,
+	'vocabulary-shift': 0.50,
+	'reintroduction': 0.00,
+	'temporal-gap': 0.00,
+	'self-contained': 0.00,
+};
+
 export function segment(
 	conversation: ParsedConversation,
 	config: SegmentationConfig,
 	tagPrefix: string = 'ai-chat'
 ): Segment[] {
+	if (conversation.contentType === 'document') {
+		config = { ...config, signalWeights: DOCUMENT_SIGNAL_WEIGHTS };
+	}
+
 	const messages = conversation.messages;
 
 	if (messages.length < 2) {

@@ -1,4 +1,4 @@
-export { segment, segmentWithFallback, DEFAULT_SIGNAL_WEIGHTS } from './segmenter';
+export { segment, segmentWithFallback, DEFAULT_SIGNAL_WEIGHTS, DOCUMENT_SIGNAL_WEIGHTS } from './segmenter';
 export type { OllamaSettings } from './segmenter';
 export { OllamaClient } from './ollama/client';
 export { scoreBoundaries } from './scorer';
