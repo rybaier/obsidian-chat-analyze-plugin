@@ -1,13 +1,14 @@
 # Chat Splitter
 
-Split long AI chat transcripts into organized, topic-specific Obsidian notes.
+Split long AI chat transcripts and documents into organized, topic-specific Obsidian notes.
 
-Chat Splitter takes a sprawling multi-topic conversation from ChatGPT or Claude and breaks it into individual notes -- one per topic -- with auto-generated titles, tags, summaries, key points, bidirectional wikilinks, and an index (Map of Content) note tying everything together.
+Chat Splitter takes a sprawling multi-topic conversation from ChatGPT or Claude -- or any long-form document -- and breaks it into individual notes, one per topic or section, with auto-generated titles, tags, summaries, key points, bidirectional wikilinks, and an index (Map of Content) note tying everything together.
 
 ## Features
 
 - **Multi-format import** -- paste text or import JSON/ZIP/Markdown files
 - **ChatGPT + Claude support** -- paste format, JSON export, and ZIP archives
+- **Document import** -- paste or import any long-form document; headings become section boundaries with paragraph-group fallback
 - **Heuristic topic segmentation** -- 6 weighted signals detect topic boundaries offline, no API keys needed
 - **Key info extraction** -- each note gets a summary, key points, and reference links in callout blocks
 - **Auto-tagging** -- domain-aware tags (coding, database, web, design, writing, real-estate, finance, immigration, travel, health, ai-ml)
@@ -16,8 +17,8 @@ Chat Splitter takes a sprawling multi-topic conversation from ChatGPT or Claude 
 - **Index / MOC note** -- one Map of Content per conversation with topics table and summaries
 - **Optional Ollama enhancement** -- use a local LLM for improved segmentation quality
 - **Segment preview/edit** -- review, merge, split, and rename segments before creating notes
-- **3 speaker styles** -- callouts (default), blockquotes, or bold labels
-- **Per-import configuration** -- folder, tags, granularity, style, and more adjustable each import
+- **4 speaker styles** -- callouts (default), blockquotes, bold labels, or plain (no labels)
+- **Per-import configuration** -- folder, tags, granularity, style adjustable each import from Step 1
 
 ## Installation
 
@@ -44,11 +45,14 @@ Then copy `main.js`, `manifest.json`, and `styles.css` into your vault's `.obsid
 ### Paste import
 
 1. Open the command palette and run **Chat Splitter: Import from clipboard**
-2. Paste your conversation text into the textarea
-3. The format is auto-detected (ChatGPT paste, Claude paste, or generic markdown)
-4. Click **Analyze** to parse and segment
-5. Configure target folder, tags, granularity, and speaker style
-6. Click **Create N Notes** to write notes to your vault
+2. Paste your conversation text (or any long-form document) into the textarea
+3. The format is auto-detected (ChatGPT paste, Claude paste, generic markdown, or document)
+4. Set target folder and tag prefix (optional, also configurable in Step 2)
+5. Click **Analyze** to parse and segment
+6. Configure granularity, speaker style, and other options
+7. Click **Create N Notes** to write notes to your vault
+
+Documents with headings are automatically split at heading boundaries. Documents without headings fall back to paragraph-group splitting. The format badge shows "Document" when non-chat content is detected, and plain speaker style is auto-selected.
 
 ### File import
 
@@ -76,7 +80,7 @@ Enable "Always preview" in settings to open preview mode by default.
 | Tag prefix | `ai-chat` | Prefix for auto-generated tags |
 | Folder structure | Nested | Nested (per-conversation folder) or Flat |
 | Default granularity | Medium | Coarse / Medium / Fine segmentation |
-| Speaker style | Callouts | Callouts / Blockquotes / Bold |
+| Speaker style | Callouts | Callouts / Blockquotes / Bold / Plain |
 | Keep full transcript | Off | Also create a single unsplit transcript note |
 | Enable Ollama | Off | Use local Ollama for LLM-enhanced segmentation |
 | Custom frontmatter | (empty) | Additional YAML fields added to every note |
@@ -92,6 +96,7 @@ Enable "Always preview" in settings to open preview mode by default.
 | Claude paste | Paste | "Human:" / "Assistant:" format |
 | Claude JSON export | File | `chat_messages` array format |
 | Generic markdown | Paste/File | Heading-based or bold-label speaker patterns |
+| Documents | Paste/File | Any long-form text; splits at headings or paragraph groups |
 
 ## License
 
