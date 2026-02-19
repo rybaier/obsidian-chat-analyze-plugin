@@ -98,6 +98,7 @@ export class ChatGPTJsonParser implements IChatParser {
 			id: conv.id || generateId(),
 			title,
 			source: 'chatgpt',
+			contentType: 'chat',
 			inputMethod: 'file-json',
 			createdAt: conv.create_time ? new Date(conv.create_time * 1000) : null,
 			updatedAt: conv.update_time ? new Date(conv.update_time * 1000) : null,

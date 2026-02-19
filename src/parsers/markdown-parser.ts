@@ -74,6 +74,7 @@ export class MarkdownParser implements IChatParser {
 			id: generateId(),
 			title: frontmatterTitle || title,
 			source: 'markdown',
+			contentType: 'chat',
 			inputMethod: 'paste',
 			createdAt: null,
 			updatedAt: null,

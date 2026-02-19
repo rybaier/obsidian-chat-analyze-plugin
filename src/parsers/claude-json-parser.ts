@@ -97,6 +97,7 @@ export class ClaudeJsonParser implements IChatParser {
 			id: convId || generateId(),
 			title: convTitle,
 			source: 'claude',
+			contentType: 'chat',
 			inputMethod: 'file-json',
 			createdAt,
 			updatedAt,

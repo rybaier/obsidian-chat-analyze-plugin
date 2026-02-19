@@ -87,6 +87,7 @@ export class ClaudePasteParser implements IChatParser {
 			id: generateId(),
 			title,
 			source: 'claude',
+			contentType: 'chat',
 			inputMethod: 'paste',
 			createdAt: null,
 			updatedAt: null,

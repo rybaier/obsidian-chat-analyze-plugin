@@ -96,6 +96,7 @@ export class ChatGPTPasteParser implements IChatParser {
 			id: generateId(),
 			title,
 			source: 'chatgpt',
+			contentType: 'chat',
 			inputMethod: 'paste',
 			createdAt: null,
 			updatedAt: null,
