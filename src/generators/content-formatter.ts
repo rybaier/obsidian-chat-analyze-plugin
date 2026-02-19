@@ -36,6 +36,9 @@ export function formatMessages(
 			case 'bold':
 				formatted.push(formatBold(roleLabel, content, timestamp));
 				break;
+			case 'plain':
+				formatted.push(formatPlain(content, timestamp));
+				break;
 		}
 	}
 
@@ -74,6 +77,13 @@ function formatBlockquote(roleLabel: string, content: string, timestamp: string)
 
 function formatBold(roleLabel: string, content: string, timestamp: string): string {
 	return `**${roleLabel}:**${timestamp} ${content}`;
+}
+
+function formatPlain(content: string, timestamp: string): string {
+	if (timestamp) {
+		return `${content}\n\n<small>${timestamp.trim()}</small>`;
+	}
+	return content;
 }
 
 function renderContentBlocks(blocks: ContentBlock[], style: SpeakerStyle): string {
