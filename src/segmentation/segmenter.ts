@@ -84,6 +84,15 @@ export function segment(
 	const lastConfidence = boundaryMap.get(segStart) || 1.0;
 	segments.push(buildSegment(lastMessages, segStart, messages.length - 1, lastConfidence, tagPrefix));
 
+	// For documents, generate tags from the full text so domain patterns
+	// have enough keyword occurrences to meet minMatches thresholds
+	if (conversation.contentType === 'document') {
+		const documentTags = generateTags(messages, tagPrefix);
+		for (const seg of segments) {
+			seg.tags = documentTags;
+		}
+	}
+
 	return segments;
 }
 
