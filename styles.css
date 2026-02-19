@@ -63,6 +63,13 @@
 	color: var(--text-on-accent);
 }
 
+/* Step 1 settings */
+.chat-splitter-step1-settings {
+	margin: 8px 0;
+	padding: 8px 0;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
 /* File input */
 .chat-splitter-file-input {
 	display: flex;

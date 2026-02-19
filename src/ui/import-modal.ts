@@ -103,6 +103,23 @@ export class ImportModal extends Modal {
 			this.renderFileInput(badge);
 		}
 
+		const step1Settings = this.contentEl.createDiv('chat-splitter-step1-settings');
+
+		new Setting(step1Settings)
+			.setName('Target folder')
+			.addText(text => {
+				text.setValue(this.importConfig.targetFolder);
+				text.onChange(value => { this.importConfig.targetFolder = value; });
+				new FolderSuggest(this.app, text.inputEl);
+			});
+
+		new Setting(step1Settings)
+			.setName('Tag prefix')
+			.addText(text => {
+				text.setValue(this.importConfig.tagPrefix);
+				text.onChange(value => { this.importConfig.tagPrefix = value; });
+			});
+
 		const analyzeBtn = this.contentEl.createEl('button', {
 			text: 'Analyze',
 			cls: 'mod-cta',
