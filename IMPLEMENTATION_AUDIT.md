@@ -1,22 +1,23 @@
 # Implementation Audit Report
 
-> **Date:** 2026-02-17
-> **Scope:** All 11 implementation phases against ARCHITECTURE.md and IMPLEMENTATION_PLAN.md
+> **Date:** 2026-02-18
+> **Scope:** All 12 implementation phases against ARCHITECTURE.md and IMPLEMENTATION_PLAN.md
 > **Build Status:** Passing (`npm run build` succeeds with zero errors)
 
 ---
 
 ## Executive Summary
 
-The Chat Splitter Obsidian plugin has been fully implemented across all 11 planned phases. The codebase is **99% compliant** with the architecture specification. All 48 TypeScript source files compile without errors, all core interfaces match the spec exactly, and all plugin features are wired and functional.
+The Chat Splitter Obsidian plugin has been fully implemented across all 12 phases. The codebase is **99% compliant** with the architecture specification. All TypeScript source files compile without errors, all core interfaces match the spec exactly, and all plugin features are wired and functional.
 
 **Key metrics:**
 - 48 TypeScript source files
-- 17 core type interfaces (all match spec 100%)
-- 6 parser implementations (paste + JSON for ChatGPT and Claude, plus generic markdown)
-- 6 segmentation signal detectors
-- 3 speaker formatting styles (callouts, blockquotes, bold)
+- 18 core type interfaces (all match spec 100%)
+- 6 parser implementations (paste + JSON for ChatGPT and Claude, plus generic markdown with document splitting)
+- 6 segmentation signal detectors + document-specific weight profile
+- 4 speaker formatting styles (callouts, blockquotes, bold, plain)
 - 4 Ollama integration modules
+- 2 content types (chat, document) with mode-specific UX
 
 ---
 
@@ -93,35 +94,41 @@ These are internal implementation details used only within their respective modu
 
 ## 4. Feature Completeness
 
-### Parsers (6/6)
+### Parsers (6/6 + document mode)
 - [x] ChatGPT paste parser (with "Thought for..." line stripping)
 - [x] ChatGPT JSON parser (tree walker via current_node)
 - [x] Claude paste parser (Human/Assistant/Claude labels)
 - [x] Claude JSON parser (chat_messages + content array formats)
-- [x] Generic markdown parser (4 speaker pattern strategies)
-- [x] Format auto-detection (JSON priority, then paste patterns)
+- [x] Generic markdown parser (4 speaker pattern strategies + heading/paragraph document splitting)
+- [x] Format auto-detection (JSON priority, then paste patterns, document badge for headings)
 
 ### Segmentation (complete)
 - [x] 6 weighted signals (transition, domain, vocabulary, temporal, self-contained, reintroduction)
 - [x] Composite scorer with configurable weights
+- [x] Document-specific signal weights (50/50 domain-shift + vocabulary-shift)
 - [x] Greedy boundary selection with minimum segment enforcement
 - [x] 3 granularity presets (coarse/medium/fine)
 - [x] Title generation from first user question
-- [x] Tag generation from domain patterns
+- [x] Tag generation from domain patterns (full-text generation for documents)
 - [x] Merge/split/rename utilities for preview editing
 
 ### Note Generation (complete)
 - [x] YAML frontmatter with all spec fields
-- [x] 3 speaker formatting styles
+- [x] 4 speaker formatting styles (callouts, blockquotes, bold, plain)
+- [x] Document-aware CSS classes (`document-segment`/`document-transcript`)
+- [x] Document-aware labels ("Section" vs "Segment", "Sections" vs "Messages")
 - [x] Wikilink navigation (prev/next/parent)
 - [x] Index/MOC note with topics table
 - [x] Full transcript note (optional)
 - [x] Filename sanitization and collision resolution
+- [x] Key info extraction falls back to all messages when no assistant present
 
 ### UI (complete)
 - [x] 2-step import wizard (paste + file tabs)
-- [x] Real-time format detection badge
+- [x] Real-time format detection badge (shows "Document" for heading-structured content)
+- [x] Folder and tag prefix controls in Step 1 (values carry to Step 2)
 - [x] Per-import configuration (folder, tags, granularity, style)
+- [x] Document mode: auto-sets plain style, "Import Document" header, "sections" terminology
 - [x] Preview modal with segment editing
 - [x] Settings tab (5 sections, 20 settings)
 - [x] Folder autocomplete
@@ -158,6 +165,9 @@ These are internal implementation details used only within their respective modu
 | Missing target folder | ensureFolderExists creates recursively |
 | Duplicate conversation import | DuplicateModal with Cancel/Import as New |
 | Ollama unreachable | Automatic heuristic fallback + Notice |
+| Non-chat document pasted | Heading/paragraph splitting, document signal weights, plain formatting |
+| Document with no headings | Paragraph-group fallback (groups of 3, requires 4+ paragraphs) |
+| Document segments too small for tags | Tags generated from full document text instead of per-segment |
 
 ---
 
@@ -191,7 +201,7 @@ These cannot be verified via build alone:
 
 ---
 
-## 8. Post-Audit Changes (2026-02-15 to 2026-02-17)
+## 8. Post-Audit Changes (2026-02-15 to 2026-02-18)
 
 The following changes were made after the initial audit on 2026-02-14:
 
@@ -202,6 +212,8 @@ The following changes were made after the initial audit on 2026-02-14:
 | Key info extractor | `key-info-extractor.ts` (new), `note-generator.ts` | New module extracts summary, key points (from list items/headings, max 6), and links (tracking params stripped) into callout blocks above the `---` separator |
 | Naming template simplified | `settings.ts` | Default `namingTemplate` changed from `{{date}} - {{conversation_title}} - {{topic}}` to `{{topic}}` |
 | Tag domains expanded | `tag-generator.ts` | Added 6 new domain patterns: `real-estate`, `finance`, `immigration`, `travel`, `health`, `ai-ml` |
+| Document splitting (Phase 12) | 16 files | Added `ContentType` (`chat`/`document`), heading/paragraph document splitting in markdown parser, `DOCUMENT_SIGNAL_WEIGHTS`, `plain` speaker style, document-aware CSS/labels, folder/tag in Step 1, document mode UX auto-detection |
+| Document tag fix | `segmenter.ts` | Tags generated from full document text instead of per-segment to meet domain pattern `minMatches` thresholds |
 
 ---
 

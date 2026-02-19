@@ -2,9 +2,9 @@
 
 > **Architecture Reference:** [`ARCHITECTURE.md`](./ARCHITECTURE.md)
 > **Status:** Complete
-> **Last Updated:** 2026-02-17
+> **Last Updated:** 2026-02-18
 
-All 11 phases implemented. Post-implementation improvements: title generator rewrite (4-strategy priority chain with fuzzy entity dedup), key info blocks (summary/key points/links callouts), naming template simplified to `{{topic}}`, tag domains expanded (real-estate, finance, immigration, travel, health, ai-ml).
+All 11 phases implemented. Post-implementation improvements: title generator rewrite (4-strategy priority chain with fuzzy entity dedup), key info blocks (summary/key points/links callouts), naming template simplified to `{{topic}}`, tag domains expanded (real-estate, finance, immigration, travel, health, ai-ml), document splitting + folder/tag in Step 1 (Phase 12).
 
 This document breaks down the architecture specification into concrete, executable implementation tasks. Each phase contains specific files to create/modify, what each file must contain, acceptance criteria, and verification steps.
 
@@ -1069,6 +1069,110 @@ This document breaks down the architecture specification into concrete, executab
 
 ### Commit Message title 
 `fix: handle edge cases, finalize styling, and polish error handling`
+
+---
+
+## Phase 12: Document Splitting + Folder/Tag in Step 1
+
+**Goal:** Support non-chat document splitting, add `plain` speaker style, and surface folder/tag controls in Step 1 for better UX.
+
+**Dependencies:** Phase 11
+
+### Tasks
+
+- [x] **12.1** Add `ContentType` and `plain` SpeakerStyle to type system
+  - Added `ContentType = 'chat' | 'document'` type to `conversation.ts`
+  - Added `contentType: ContentType` field to `ParsedConversation`
+  - Added `'plain'` to `SpeakerStyle` union
+  - Re-exported `ContentType` from `types/index.ts`
+
+- [x] **12.2** Set `contentType: 'chat'` on all existing parsers
+  - One-line addition to return objects in: `chatgpt-paste-parser.ts`, `chatgpt-json-parser.ts`, `claude-paste-parser.ts`, `claude-json-parser.ts`, `markdown-parser.ts`
+
+- [x] **12.3** Heading-based document splitting in markdown parser
+  - When no speaker pattern detected: strip frontmatter, scan for headings, split at heading boundaries
+  - Each heading section becomes a `Message` with `role: 'user'`; sections with <10 words skipped
+  - Paragraph-group fallback: groups of ~3 paragraphs (requires 4+ paragraphs)
+  - Sets `contentType: 'document'` when 2+ sections found, else single-message fallback with `contentType: 'chat'`
+  - New private methods: `stripFrontmatter()`, `splitBySections()`, `splitByParagraphGroups()`
+
+- [x] **12.4** Document signal weights for segmentation
+  - Added `DOCUMENT_SIGNAL_WEIGHTS` constant (50% domain-shift, 50% vocabulary-shift, all others 0)
+  - `segment()` auto-overrides weights when `contentType === 'document'`
+  - Exported from `segmentation/index.ts`
+
+- [x] **12.5** Plain speaker style in content formatter
+  - Added `case 'plain'` to formatting switch
+  - `formatPlain()` renders content blocks directly with no speaker labels or wrapping
+
+- [x] **12.6** Key info extractor: handle documents
+  - `extractKeyPoints()` now falls back to all messages when no assistant messages exist
+
+- [x] **12.7** Document-aware CSS classes and labels in note generator
+  - CSS classes: `document-segment` / `document-transcript` vs `chat-segment` / `chat-transcript`
+  - Labels: "Section" vs "Segment", "Sections" vs "Messages" for documents
+
+- [x] **12.8** Plain option in speaker style dropdowns
+  - Added `'Plain (no labels)'` option to import modal and settings tab dropdowns
+  - Updated type casts to use `SpeakerStyle` type
+
+- [x] **12.9** Folder and tag prefix controls in import Step 1
+  - Added "Target folder" (with `FolderSuggest`) and "Tag prefix" inputs between format badge and analyze button
+  - Both read/write `importConfig`; values carry through to Step 2
+  - Added `.chat-splitter-step1-settings` CSS
+
+- [x] **12.10** Document mode auto-detection and UI polish
+  - After parsing, auto-sets `speakerStyle = 'plain'` for documents
+  - Format badge shows "Document" for markdown with heading structure
+  - Step 2 header: "Import Document" vs "Import Chat"
+  - Summary: "N sections" vs "N messages"
+  - Success notice: "from document" vs "from chat conversation"
+
+- [x] **12.11** Document tag generation fix
+  - Document segments individually had too little text for domain patterns to reach `minMatches` thresholds
+  - Tags now generated once from the full document text and applied to all segments
+  - Chat tag generation unchanged
+
+### Files Created/Modified
+| File | Action | Purpose |
+|------|--------|---------|
+| `src/types/conversation.ts` | Modify | Add `ContentType`, `contentType` field |
+| `src/types/settings.ts` | Modify | Add `'plain'` to `SpeakerStyle` |
+| `src/types/index.ts` | Modify | Re-export `ContentType` |
+| `src/parsers/chatgpt-paste-parser.ts` | Modify | Add `contentType: 'chat'` |
+| `src/parsers/chatgpt-json-parser.ts` | Modify | Add `contentType: 'chat'` |
+| `src/parsers/claude-paste-parser.ts` | Modify | Add `contentType: 'chat'` |
+| `src/parsers/claude-json-parser.ts` | Modify | Add `contentType: 'chat'` |
+| `src/parsers/markdown-parser.ts` | Modify | Heading/paragraph splitting, `contentType` |
+| `src/segmentation/segmenter.ts` | Modify | `DOCUMENT_SIGNAL_WEIGHTS`, content-type selection, full-text tag generation |
+| `src/segmentation/index.ts` | Modify | Export `DOCUMENT_SIGNAL_WEIGHTS` |
+| `src/generators/content-formatter.ts` | Modify | `'plain'` speaker style |
+| `src/generators/key-info-extractor.ts` | Modify | Fallback to all messages when no assistant |
+| `src/generators/note-generator.ts` | Modify | Document-aware CSS classes + labels |
+| `src/ui/import-modal.ts` | Modify | Folder/tag in Step 1, document UX, `'plain'` option |
+| `src/ui/settings-tab.ts` | Modify | Add `'plain'` to speaker style dropdown |
+| `styles.css` | Modify | Step 1 settings styling |
+
+### Acceptance Criteria
+- [x] `npx tsc --noEmit` -- no type errors
+- [x] `npm run build` -- production build passes
+- [x] Existing chat flows unaffected (all chat parsers set `contentType: 'chat'`)
+- [ ] Paste a document with headings: badge shows "Document", multiple segments created, plain formatting (requires manual test)
+- [ ] Paste a document without headings: paragraph-group fallback (requires manual test)
+- [ ] Folder/tag inputs visible and functional in Step 1, values carry to Step 2 (requires manual test)
+
+### Commits
+1. `feat: add ContentType and plain SpeakerStyle to type system`
+2. `feat: set contentType chat on all existing parsers`
+3. `feat: add heading-based document splitting to markdown parser`
+4. `feat: add document signal weights for segmentation`
+5. `feat: add plain speaker style to content formatter`
+6. `fix: extract key points from all messages when no assistant present`
+7. `feat: add document-aware CSS classes and labels to note generator`
+8. `feat: add plain option to speaker style dropdowns`
+9. `feat: add folder and tag prefix controls to import step 1`
+10. `feat: add document mode auto-detection and UI polish`
+11. `fix: generate document tags from full text instead of per-segment`
 
 ---
 
