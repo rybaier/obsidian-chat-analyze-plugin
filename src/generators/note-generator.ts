@@ -16,6 +16,10 @@ export function generateNotes(
 	const notes: GeneratedNote[] = [];
 	const dateStr = formatDate(conversation.createdAt);
 	const importedStr = new Date().toISOString();
+	const isDocument = conversation.contentType === 'document';
+	const segmentCss = isDocument ? 'document-segment' : 'chat-segment';
+	const segmentLabel = isDocument ? 'Section' : 'Segment';
+	const messagesLabel = isDocument ? 'Sections' : 'Messages';
 
 	const baseVars: Record<string, string> = {
 		date: dateStr,
@@ -49,7 +53,7 @@ export function generateNotes(
 		const filePath = `${folderPath}/${filename}.md`;
 
 		const frontmatter = buildFrontmatter({
-			cssclasses: ['chat-segment'],
+			cssclasses: [segmentCss],
 			source: conversation.source,
 			conversation_id: conversation.id,
 			conversation_title: conversation.title,
@@ -78,7 +82,7 @@ export function generateNotes(
 			notes[notes.length - 1] = { ...prevNote, content: updatedFm, frontmatter: { ...prevNote.frontmatter, next: `[[${filename}]]` } };
 		}
 
-		const infoHeader = `# ${seg.title}\n\n> [!info] Segment ${i + 1} of ${segments.length} from [[${indexNoteName}]]\n> **Source:** ${conversation.source} | **Date:** ${dateStr} | **Messages:** ${seg.messages.length}`;
+		const infoHeader = `# ${seg.title}\n\n> [!info] ${segmentLabel} ${i + 1} of ${segments.length} from [[${indexNoteName}]]\n> **Source:** ${conversation.source} | **Date:** ${dateStr} | **${messagesLabel}:** ${seg.messages.length}`;
 
 		const messageContent = formatMessages(seg.messages, config.speakerStyle, {
 			collapseLong: true,
@@ -98,7 +102,7 @@ export function generateNotes(
 			filename,
 			content,
 			frontmatter: {
-				cssclasses: ['chat-segment'],
+				cssclasses: [segmentCss],
 				source: conversation.source,
 				conversation_id: conversation.id,
 				conversation_title: conversation.title,
@@ -140,6 +144,7 @@ function generateTranscriptNote(
 	importedStr: string,
 	customFrontmatter?: string
 ): GeneratedNote {
+	const transcriptCss = conversation.contentType === 'document' ? 'document-transcript' : 'chat-transcript';
 	const filename = sanitizeFilename(
 		renderTemplate(config.namingTemplate, {
 			date: dateStr,
@@ -154,7 +159,7 @@ function generateTranscriptNote(
 		: config.targetFolder;
 
 	const fm = buildFrontmatter({
-		cssclasses: ['chat-transcript'],
+		cssclasses: [transcriptCss],
 		source: conversation.source,
 		conversation_id: conversation.id,
 		conversation_title: conversation.title,
@@ -185,7 +190,7 @@ function generateTranscriptNote(
 		filename,
 		content,
 		frontmatter: {
-			cssclasses: ['chat-transcript'],
+			cssclasses: [transcriptCss],
 			source: conversation.source,
 			conversation_id: conversation.id,
 			conversation_title: conversation.title,
