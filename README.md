@@ -32,7 +32,7 @@ Chat Splitter takes a sprawling multi-topic conversation from ChatGPT or Claude 
 ### Build from source
 
 ```bash
-git clone https://github.com/ryanbaier/obsidian-chat-analyze-plugin.git
+git clone https://github.com/rybaier/obsidian-chat-analyze-plugin.git
 cd obsidian-chat-analyze-plugin
 npm install
 npm run build

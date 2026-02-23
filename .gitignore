@@ -11,13 +11,19 @@ data.json
 
 # Test build artifacts
 test-*.cjs
+test-*.ts
 
-# Claude Code
+# Dev artifacts
 CLAUDE.md
+IMPLEMENTATION_PLAN.md
+IMPLEMENTATION_AUDIT.md
+ACII-sword.md
+scripts/
 
 # Test conversation fixtures
 TEST_PASTE_CONVERSATION.md
 TEST_SHARE_URL_LINK.md
+TEST_SHARE_EXPORT_LINK.md
 
 # OS
 .DS_Store
