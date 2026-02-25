@@ -1,4 +1,5 @@
 import type { InputFormat } from './parser-interface';
+import { maskCodeBlocks } from './code-block-guard';
 
 export function detectFormat(input: string): InputFormat {
 	const trimmed = input.trim();
@@ -12,6 +13,10 @@ export function detectFormat(input: string): InputFormat {
 	}
 
 	if (isClaudePaste(trimmed)) {
+		return { source: 'claude', method: 'paste' };
+	}
+
+	if (isClaudeWebPaste(trimmed)) {
 		return { source: 'claude', method: 'paste' };
 	}
 
@@ -72,5 +77,26 @@ function isClaudePaste(input: string): boolean {
 		if (/^(Assistant|Claude)\s*:/i.test(trimmed)) hasAssistant = true;
 		if (hasHuman && hasAssistant) return true;
 	}
+	return false;
+}
+
+function isClaudeWebPaste(input: string): boolean {
+	if (/^(Human|Assistant|Claude)\s*:/im.test(input)) {
+		return false;
+	}
+
+	const { masked } = maskCodeBlocks(input);
+	const lines = masked.split('\n');
+	const datePattern =
+		/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}$/;
+	let dateCount = 0;
+
+	for (const line of lines) {
+		if (datePattern.test(line.trim())) {
+			dateCount++;
+			if (dateCount >= 2) return true;
+		}
+	}
+
 	return false;
 }
