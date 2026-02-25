@@ -4,6 +4,7 @@ import { detectFormat } from './format-detector';
 import { ChatGPTPasteParser } from './chatgpt-paste-parser';
 import { ChatGPTJsonParser } from './chatgpt-json-parser';
 import { ClaudePasteParser } from './claude-paste-parser';
+import { ClaudeWebParser } from './claude-web-parser';
 import { ClaudeJsonParser } from './claude-json-parser';
 import { MarkdownParser } from './markdown-parser';
 import type { IChatParser } from './parser-interface';
@@ -11,6 +12,7 @@ import type { IChatParser } from './parser-interface';
 const pasteParsers: IChatParser[] = [
 	new ChatGPTPasteParser(),
 	new ClaudePasteParser(),
+	new ClaudeWebParser(),
 	new MarkdownParser(),
 ];
 
@@ -50,6 +52,7 @@ export { detectFormat } from './format-detector';
 export { ChatGPTPasteParser } from './chatgpt-paste-parser';
 export { ChatGPTJsonParser } from './chatgpt-json-parser';
 export { ClaudePasteParser } from './claude-paste-parser';
+export { ClaudeWebParser } from './claude-web-parser';
 export { ClaudeJsonParser } from './claude-json-parser';
 export { MarkdownParser } from './markdown-parser';
 export { listConversations } from './chatgpt-json-parser';
