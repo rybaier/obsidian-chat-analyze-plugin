@@ -54,12 +54,12 @@ const CAPITALIZED_EXCLUSIONS = new Set([
 	'Programs', 'Application', 'Process', 'Requirement',
 ]);
 
-const FILLER_PREFIXES = [
+export const FILLER_PREFIXES = [
 	/^(can you|could you|please|would you|i want you to|help me|i need you to)[,;:.!?]?\s+/i,
 	/^(ok so|ok perfect|ok great|ok|perfect|great|awesome|thanks|thank you|alright so|alright|yeah so|yeah|sure|got it|so)[,;:.!?]?\s+/i,
 ];
 
-const ACTION_VERB_PATTERNS = [
+export const ACTION_VERB_PATTERNS = [
 	/^let'?s\s+(create|explore|break\s+down|look\s+at|discuss|research|compare|analyze|examine|review|check|find|build|make|write|design|plan|develop|figure\s+out|work\s+on|go\s+over|go\s+through|talk\s+about|think\s+about|dive\s+into|start\s+with|begin\s+with|focus\s+on|look\s+into)\s+/i,
 	/^(do\s+some|do\s+a)\s+(research|analysis|comparison|breakdown|review|deep\s+dive|exploration|investigation)\s+(about|on|for|into|of|regarding)\s+/i,
 	/^what\s+are\s+the\s+/i,
@@ -95,16 +95,165 @@ const COMPARISON_PATTERNS = [
 
 /**
  * Priority chain title generator. Returns the first non-null result:
+ * 0. Assistant topic (headings or opening statement)
  * 1. Comparison pattern ("X vs Y")
  * 2. Entity + topic kernel
  * 3. Cleaned first sentence (current approach, enhanced)
  * 4. Keyword fallback
  */
 export function generateTitle(messages: Message[]): string {
-	return tryComparisonTitle(messages)
+	return tryAssistantTopicTitle(messages)
+		?? tryComparisonTitle(messages)
 		?? tryEntityTitle(messages)
 		?? tryCleanedSentence(messages)
 		?? generateFromKeywords(messages);
+}
+
+// --- Strategy 0: Assistant Topic (headings or opening statement) ---
+
+const GREETING_PATTERN = /^(sure|absolutely|of course|great question|good question|certainly|definitely|i'?d be happy to|i can help|happy to help|here'?s|let me|okay|yes)[,!.]?\s*/i;
+
+function tryAssistantTopicTitle(messages: Message[]): string | null {
+	const assistantMessages = messages.filter(m => m.role === 'assistant');
+	if (assistantMessages.length === 0) return null;
+
+	// Try headings first
+	const headingTitle = tryHeadingTitle(assistantMessages, messages);
+	if (headingTitle) return headingTitle;
+
+	// Fallback: first meaningful sentence from first assistant response
+	return tryAssistantOpeningTitle(assistantMessages[0], messages);
+}
+
+function tryHeadingTitle(assistantMessages: Message[], allMessages: Message[]): string | null {
+	const headings: { text: string; level: number }[] = [];
+
+	for (const msg of assistantMessages) {
+		const lines = msg.plainText.split('\n');
+		for (const line of lines) {
+			const match = line.match(/^(#{2,4})\s+(.+)/);
+			if (!match) continue;
+
+			const level = match[1].length;
+			let text = match[2].trim();
+
+			// Strip markdown formatting
+			text = text
+				.replace(/\*\*([^*]+)\*\*/g, '$1')
+				.replace(/\*([^*]+)\*/g, '$1')
+				.replace(/`([^`]+)`/g, '$1')
+				.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+
+			// Strip numbering prefixes ("1.", "Step 1:", "Part A:")
+			text = text.replace(/^(\d+\.\s*|step\s+\d+[:.]\s*|part\s+[a-z0-9]+[:.]\s*)/i, '').trim();
+
+			if (text.length >= 3) {
+				headings.push({ text, level });
+			}
+		}
+	}
+
+	if (headings.length === 0) return null;
+
+	// Score headings: lower level (h2) beats higher (h4), frequency matters
+	const headingCounts = new Map<string, { count: number; bestLevel: number }>();
+	for (const h of headings) {
+		const key = h.text.toLowerCase();
+		const existing = headingCounts.get(key);
+		if (existing) {
+			existing.count++;
+			existing.bestLevel = Math.min(existing.bestLevel, h.level);
+		} else {
+			headingCounts.set(key, { count: 1, bestLevel: h.level });
+		}
+	}
+
+	// Pick the best heading: prefer h2, then frequency, then first occurrence
+	let bestHeading = headings[0].text;
+	let bestScore = 0;
+	for (const [, entry] of headingCounts) {
+		// Invert level so h2 (level 2) scores higher than h4 (level 4)
+		const score = entry.count * 10 + (6 - entry.bestLevel);
+		if (score > bestScore) {
+			bestScore = score;
+			// Find the original-cased version
+			const original = headings.find(h => h.text.toLowerCase() === [...headingCounts.entries()].find(([, v]) => v === entry)![0]);
+			if (original) bestHeading = original.text;
+		}
+	}
+
+	// Combine with user context if the heading is short/generic
+	const firstUser = allMessages.find(m => m.role === 'user');
+	if (firstUser && bestHeading.length < 25) {
+		const kernel = extractTopicKernel(firstUser.plainText);
+		if (kernel && kernel.length > 2) {
+			// Avoid redundancy: only add kernel if it doesn't overlap with heading
+			const headingLower = bestHeading.toLowerCase();
+			const kernelLower = kernel.toLowerCase();
+			if (!headingLower.includes(kernelLower) && !kernelLower.includes(headingLower)) {
+				const combined = `${kernel} ${bestHeading}`;
+				const titled = toTitleCase(combined);
+				if (titled.length <= MAX_TITLE_LENGTH) return titled;
+				return truncateAtWord(titled, MAX_TITLE_LENGTH);
+			}
+		}
+	}
+
+	const titled = toTitleCase(bestHeading);
+	if (titled.length <= MAX_TITLE_LENGTH) return titled;
+	return truncateAtWord(titled, MAX_TITLE_LENGTH);
+}
+
+function tryAssistantOpeningTitle(firstAssistant: Message, allMessages: Message[]): string | null {
+	const text = firstAssistant.plainText.trim();
+	const lines = text.split('\n')
+		.map(l => l.trim())
+		.filter(l => l.length >= 15)
+		.filter(l => !/^#{1,6}\s/.test(l))         // skip headings
+		.filter(l => !/^[-*+]\s/.test(l))           // skip list items
+		.filter(l => !/^\d+\.\s/.test(l))           // skip numbered lists
+		.filter(l => !/^[-=]{3,}$/.test(l))         // skip dividers
+		.filter(l => !/^```/.test(l))               // skip code fences
+		.filter(l => !/(https?:)?\/\/\S+/.test(l)); // skip URL-heavy lines
+
+	if (lines.length === 0) return null;
+
+	let opening = lines[0];
+
+	// Strip greeting prefix
+	opening = opening.replace(GREETING_PATTERN, '').trim();
+	if (opening.length < 10) return null;
+
+	// Extract first sentence
+	const sentenceMatch = opening.match(/^[^.!?]*[.!?]/);
+	let sentence = sentenceMatch
+		? sentenceMatch[0].replace(/[.!?]$/, '').trim()
+		: opening.slice(0, 120).trim();
+
+	// Strip leading "Here is/are" type patterns
+	sentence = sentence.replace(/^(here(?:'s| is| are)\s+(?:a\s+|an\s+|the\s+)?)/i, '').trim();
+	sentence = sentence.replace(/^(this is\s+(?:a\s+|an\s+|the\s+)?)/i, '').trim();
+	sentence = sentence.replace(/^(i'?ll\s+(?:provide|give|share|cover|explain|outline|break down)\s+(?:a\s+|an\s+|the\s+)?)/i, '').trim();
+	sentence = sentence.replace(/^(let me\s+(?:provide|give|share|cover|explain|outline|break down)\s+(?:a\s+|an\s+|the\s+)?)/i, '').trim();
+
+	if (sentence.length < 8) return null;
+
+	// Combine with user context for short results
+	const firstUser = allMessages.find(m => m.role === 'user');
+	if (firstUser && sentence.length < 25) {
+		const kernel = extractTopicKernel(firstUser.plainText);
+		if (kernel && kernel.length > 2) {
+			const sentenceLower = sentence.toLowerCase();
+			const kernelLower = kernel.toLowerCase();
+			if (!sentenceLower.includes(kernelLower) && !kernelLower.includes(sentenceLower)) {
+				sentence = `${kernel} ${sentence}`;
+			}
+		}
+	}
+
+	const titled = toTitleCase(sentence);
+	if (titled.length <= MAX_TITLE_LENGTH) return titled;
+	return truncateAtWord(titled, MAX_TITLE_LENGTH);
 }
 
 // --- Strategy 1: Comparison Detection ---
@@ -134,7 +283,7 @@ function tryComparisonTitle(messages: Message[]): string | null {
 	return null;
 }
 
-function stripFillerAndActions(text: string): string {
+export function stripFillerAndActions(text: string): string {
 	let sentence = text;
 	let changed = true;
 	while (changed) {
@@ -479,9 +628,9 @@ function generateFromKeywords(messages: Message[]): string {
 	return toTitleCase(sorted.join(' '));
 }
 
-// --- Shared Utilities ---
+// --- Shared Utilities (exported for reuse by summary-builder) ---
 
-function stripMarkdown(text: string): string {
+export function stripMarkdown(text: string): string {
 	return text
 		.replace(/```[\s\S]*?```/g, '')       // code blocks
 		.replace(/`[^`]+`/g, '')               // inline code
@@ -493,7 +642,7 @@ function stripMarkdown(text: string): string {
 		.replace(/^\d+\.\s+/gm, '');           // ordered list markers
 }
 
-function extractFirstSentence(text: string): string {
+export function extractFirstSentence(text: string): string {
 	const firstLine = text.split('\n')[0];
 	const sentenceMatch = firstLine.match(/^[^.!?]*[.!?]/);
 	if (sentenceMatch) {
