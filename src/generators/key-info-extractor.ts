@@ -93,7 +93,7 @@ function extractKeyPoints(messages: Message[]): string[] {
 	return points;
 }
 
-function extractLinks(messages: Message[]): string[] {
+export function extractLinks(messages: Message[]): string[] {
 	const seen = new Set<string>();
 	const links: string[] = [];
 
