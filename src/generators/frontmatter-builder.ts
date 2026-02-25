@@ -45,10 +45,11 @@ export function buildFrontmatter(data: NoteFrontmatter, customFrontmatter?: stri
 }
 
 function escapeYaml(value: string): string {
-	if (/[:#\[\]{}|>&*!%@`'",?]/.test(value) || value.includes('\n')) {
-		return `"${value.replace(/"/g, '\\"')}"`;
+	const singleLine = value.replace(/\n+/g, ' ').trim();
+	if (/[:#\[\]{}|>&*!%@`'",?]/.test(singleLine)) {
+		return `"${singleLine.replace(/"/g, '\\"')}"`;
 	}
-	return value;
+	return singleLine;
 }
 
 function parseCustomFrontmatter(input: string): string[] {
