@@ -5,7 +5,7 @@ import { resolveLinks, renderNavigationFooter } from './link-resolver';
 import { sanitizeFilename } from './sanitize';
 import { renderTemplate } from '../utils/templates';
 import { generateIndexNote } from './index-note-generator';
-import { extractKeyInfo, renderKeyInfoBlock } from './key-info-extractor';
+import { buildSummaryBlock } from './summary-builder';
 
 export function generateNotes(
 	conversation: ParsedConversation,
@@ -92,10 +92,9 @@ export function generateNotes(
 
 		const navFooter = renderNavigationFooter(segLinks[i]);
 
-		const keyInfo = extractKeyInfo(seg.messages, seg.summary, seg.tags);
-		const keyInfoBlock = renderKeyInfoBlock(keyInfo);
+		const summaryBlock = buildSummaryBlock(seg.messages, seg.summary, seg.tags);
 
-		const content = [frontmatter, '', infoHeader, '', keyInfoBlock, '', '---', '', messageContent, '', navFooter].join('\n');
+		const content = [frontmatter, '', infoHeader, '', summaryBlock, '', '---', '', messageContent, '', navFooter].join('\n');
 
 		notes.push({
 			path: filePath,
