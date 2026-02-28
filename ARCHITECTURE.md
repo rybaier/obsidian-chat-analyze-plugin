@@ -3,7 +3,7 @@
 > **Status:** v1.0 -- Current
 > **Plugin ID:** `chat-splitter`
 > **Platform:** Obsidian (Desktop & Mobile)
-> **Last Updated:** 2026-02-18
+> **Last Updated:** 2026-02-28
 
 This document is the complete technical specification for Chat Splitter.
 
@@ -137,6 +137,7 @@ obsidian-chat-analyze-plugin/
 │   │   ├── chatgpt-paste-parser.ts
 │   │   ├── chatgpt-json-parser.ts  # Includes tree walker for mapping structure
 │   │   ├── claude-paste-parser.ts
+│   │   ├── claude-web-parser.ts    # Date-stamped web copy-paste (no speaker labels)
 │   │   ├── claude-json-parser.ts
 │   │   └── markdown-parser.ts      # Generic fallback
 │   ├── segmentation/
@@ -165,7 +166,8 @@ obsidian-chat-analyze-plugin/
 │   │   ├── frontmatter-builder.ts  # YAML frontmatter
 │   │   ├── content-formatter.ts    # Speaker callouts, code blocks
 │   │   ├── link-resolver.ts        # Prev/next/parent wikilinks
-│   │   ├── key-info-extractor.ts   # Extracts summary, key points, links for note header
+│   │   ├── key-info-extractor.ts   # Extracts summary, key points, links (legacy, still exported)
+│   │   ├── summary-builder.ts     # Rich summary block: questions, topics, takeaways, links
 │   │   └── sanitize.ts             # Filename sanitization
 │   ├── ui/
 │   │   ├── import-modal.ts         # Main 2-step import wizard
@@ -413,6 +415,7 @@ type InputFormat =
 2. **Paste pattern matching** — If input is plain text:
    - Lines matching `^You said:` or `^ChatGPT said:` → ChatGPT paste
    - Lines matching `^Human:` at line start or Claude-style turn markers → Claude paste
+   - 2+ date-stamp lines (`^Jan 1$`, `^Feb 23$`, etc.) without `Human:`/`Assistant:` labels → Claude web paste
 3. **Generic fallback** — Treat as generic Markdown conversation
 
 ### Parser Interface
@@ -441,7 +444,7 @@ function parseInput(input: string, options?: ParseOptions): ParsedConversation {
 }
 ```
 
-The registry is a simple ordered list. `detectFormat()` runs detection heuristics and returns the first match. If no specific parser matches, the generic Markdown parser is used.
+The registry is a simple ordered list: `ChatGPTPasteParser` → `ClaudePasteParser` → `ClaudeWebParser` → `MarkdownParser`. `detectFormat()` runs detection heuristics and returns the first match. If no specific parser matches, the generic Markdown parser is used.
 
 ### Code Block Guard
 
@@ -504,6 +507,24 @@ Line-based parsers that split on speaker label patterns:
 - Leading/trailing whitespace trimmed from each message
 - Empty messages filtered out with parse warning
 - Tool-role messages (Code Interpreter results, browsing results) are filtered out during parsing; only user and assistant messages are retained
+
+### Claude Web Paste Parser
+
+`claude-web-parser.ts` handles conversations copied from the Claude.ai web interface where no `Human:`/`Assistant:` labels are present. The only structural markers are date stamps on their own lines (e.g., `Jan 1`, `Feb 23`).
+
+**Detection (`canParse`):**
+- Reject if `Human:`/`Assistant:`/`Claude:` labels are present (those belong to `ClaudePasteParser`)
+- Mask code blocks to prevent false matches on dates inside code
+- Count lines matching `^(Jan|Feb|Mar|...|Dec)\s+\d{1,2}$`
+- Require 2+ date-stamp lines
+
+**Parsing algorithm:**
+1. Mask code blocks, find all date-stamp line positions
+2. Split text into sections at date boundaries
+3. Section 0 (before first date) = first user message
+4. Each date section: backward-scan from end to find trailing user message. A paragraph is "user-like" if: < 300 chars, no code fences, no headings, no lists, no bold. If the scan would consume the entire section, treat it all as assistant.
+5. Final section (after last date, no following date) = assistant message only
+6. Returns `contentType: 'chat'`, `source: 'claude'`, `inputMethod: 'paste'`
 
 ### Generic Markdown Parser
 
@@ -639,12 +660,13 @@ function scoreBoundaries(
 
 #### Title Generation (`title-generator.ts`)
 
-For each segment, generate a short topic title using a 4-strategy priority chain. The first strategy to produce a non-null result wins:
+For each segment, generate a short topic title using a 5-strategy priority chain. The first strategy to produce a non-null result wins:
 
-1. **Comparison detection** -- Match patterns like "X vs Y", "X or Y", "difference between X and Y", "compare X and Y". Extracts both sides, cleans them, and produces a "Side A vs Side B" title.
-2. **Entity + topic kernel** -- Extract capitalized proper nouns from all messages (skipping words in a `CAPITALIZED_EXCLUSIONS` set of ~200 common English words). User messages are weighted 3x. Multi-word entities are merged. Fuzzy dedup handles misspellings (e.g., "carriibbean" vs "Caribbean") via duplicate-char normalization and prefix + 75% character overlap matching. Generic category nouns (countries, options, types, etc.) are stripped from the kernel. The topic kernel is extracted from the first user message's first verb phrase after stripping filler prefixes and action verb patterns, capped at 40 chars.
-3. **Cleaned first sentence** -- Strip question prefixes ("Can you", "Please", etc.) and action verb patterns from the first user message's first sentence, title-case it, cap at 72 chars.
-4. **Keyword frequency fallback** -- Top 3 non-stop-word tokens by frequency across all messages in the segment, title-cased.
+1. **Assistant topic (headings or opening statement)** -- Scan assistant messages for markdown headings (`##`-`####`), score by level and frequency. If short, combine with user topic kernel for context (e.g., heading "Health" + user topic "Draven" = "Draven Character Health"). If no headings, extract the first meaningful sentence from the first assistant response, stripping greeting prefixes ("Sure!", "Great question!", etc.) and pattern phrases ("Here is a breakdown of..."). This is the highest-priority strategy because assistant content is the most reliable signal for what the conversation actually covers.
+2. **Comparison detection** -- Match patterns like "X vs Y", "X or Y", "difference between X and Y", "compare X and Y". Extracts both sides, cleans them, and produces a "Side A vs Side B" title.
+3. **Entity + topic kernel** -- Extract capitalized proper nouns from all messages (skipping words in a `CAPITALIZED_EXCLUSIONS` set of ~200 common English words). User messages are weighted 3x. Multi-word entities are merged. Fuzzy dedup handles misspellings (e.g., "carriibbean" vs "Caribbean") via duplicate-char normalization and prefix + 75% character overlap matching. Generic category nouns (countries, options, types, etc.) are stripped from the kernel. The topic kernel is extracted from the first user message's first verb phrase after stripping filler prefixes and action verb patterns, capped at 40 chars.
+4. **Cleaned first sentence** -- Strip question prefixes ("Can you", "Please", etc.) and action verb patterns from the first user message's first sentence, title-case it, cap at 72 chars.
+5. **Keyword frequency fallback** -- Top 3 non-stop-word tokens by frequency across all messages in the segment, title-cased.
 
 #### Tag Generation (`tag-generator.ts`)
 
@@ -741,37 +763,40 @@ Steps:
 1. Resolve all note filenames (using naming template + sanitization)
 2. Build frontmatter for each segment note (merging custom frontmatter if provided)
 3. Format message content for each segment
-4. Extract key info (summary, key points, links) for each segment
+4. Build rich summary block (questions, topics, takeaways, links) for each segment
 5. Build navigation links (prev/next/parent)
 6. Generate index note
 7. Return array of `GeneratedNote` objects ready for `vault.create()`
 
-### Key Info Extractor (`key-info-extractor.ts`)
+### Summary Builder (`summary-builder.ts`)
 
-Extracts structured summary information for each segment note's header area.
+Extracts structured summary information from a segment's messages and renders it as a multi-section callout block above the message transcript.
 
 ```typescript
-interface KeyInfo {
-  summary: string;
-  keyPoints: string[];
-  links: string[];
-  tags: string[];
-}
-
-function extractKeyInfo(messages: Message[], summary: string, tags: string[]): KeyInfo;
-function renderKeyInfoBlock(keyInfo: KeyInfo): string;
+function buildSummaryBlock(messages: Message[], segmentSummary: string, tags: string[]): string;
+function extractQuestions(messages: Message[]): string[];
+function extractTopics(messages: Message[]): string[];
+function extractTakeaways(messages: Message[]): string[];
 ```
 
-**`extractKeyInfo`** assembles a `KeyInfo` object:
-- `summary`: passed through from the segment's auto-generated summary
-- `keyPoints`: extracted from assistant messages (or all messages if no assistant messages exist, e.g., documents) -- first tries markdown list items (top-level, 10+ chars), then falls back to `##`-`####` headings (5+ chars). Maximum 6 points. Markdown formatting (bold, code, links) is stripped from extracted points.
-- `links`: URLs extracted from all messages via regex, tracking parameters stripped (`utm_*`, `fbclid`, `gclid`, etc.), formatted as `[domain](url)`
-- `tags`: passed through from the segment's auto-generated tags
+**`extractQuestions`** -- Extracts cleaned first sentences from user messages. Strips filler prefixes ("can you", "ok great", etc.) and action verb patterns. Deduplicates via normalized string comparison. Maximum 8 items.
 
-**`renderKeyInfoBlock`** produces callout blocks:
-- `> [!abstract] Summary` -- always rendered, includes tag pills
-- `> [!note] Key Points` -- rendered only if key points exist, as a bulleted list
-- `> [!link] References` -- rendered only if links exist, as a bulleted list
+**`extractTopics`** -- Scans assistant messages for headings (`##`-`####`), strips numbering prefixes ("1.", "Step 1:"). Falls back to the first meaningful sentence from each assistant response (stripping greeting prefixes). Deduplicates. Maximum 8 items.
+
+**`extractTakeaways`** -- Scans assistant messages for recommendation/conclusion patterns: "recommend", "suggest", "should consider", "key takeaway", "in summary", "in conclusion", "most important", "the best option", "to summarize", "bottom line", "ultimately", "my advice". Also extracts bold phrases containing actionable language. Falls back to the first sentence of the last assistant message's final paragraph as a conclusion. Deduplicates. Maximum 6 items.
+
+**`buildSummaryBlock`** renders as Obsidian callouts (empty sections omitted):
+- `> [!abstract] Summary` -- one-liner segment summary with tag pills (always rendered)
+- `> [!question] Questions Asked` -- numbered list of cleaned user questions
+- `> [!list] Topics Covered` -- bulleted list of topics from headings or assistant openings
+- `> [!tip] Key Takeaways` -- bulleted list of recommendations/conclusions
+- `> [!link] References` -- bulleted list of URLs (tracking params stripped, formatted as `[domain](url)`)
+
+Link extraction reuses `extractLinks` from `key-info-extractor.ts`.
+
+### Key Info Extractor (`key-info-extractor.ts`) (Legacy)
+
+Still exported from the generators barrel for backward compatibility but no longer used by `note-generator.ts`. The summary builder supersedes its functionality with richer extraction.
 
 ### Note Structure Order
 
@@ -779,7 +804,7 @@ Each segment note is assembled in this order:
 1. YAML frontmatter
 2. `# Title` heading
 3. `> [!info]` metadata callout (segment N of M, source, date, message/section count)
-4. Key info block (summary, key points, links)
+4. Rich summary block (summary, questions asked, topics covered, key takeaways, references)
 5. `---` horizontal rule separator
 6. Formatted messages (using configured speaker style)
 7. Navigation footer (prev/next/parent wikilinks)
