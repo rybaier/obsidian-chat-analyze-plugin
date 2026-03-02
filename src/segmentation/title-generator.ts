@@ -95,60 +95,54 @@ const COMPARISON_PATTERNS = [
 
 /**
  * Priority chain title generator. Returns the first non-null result:
- * 0. Assistant topic (headings or opening statement)
+ * 0. Assistant headings (## headings + **bold** pseudo-headings)
  * 1. Comparison pattern ("X vs Y")
  * 2. Entity + topic kernel
- * 3. Cleaned first sentence (current approach, enhanced)
- * 4. Keyword fallback
+ * 3. Assistant opening (gated: no conversational prose)
+ * 4. Cleaned first sentence
+ * 5. Keyword fallback
  */
 export function generateTitle(messages: Message[]): string {
-	return tryAssistantTopicTitle(messages)
+	return tryAssistantHeadingTitle(messages)
 		?? tryComparisonTitle(messages)
 		?? tryEntityTitle(messages)
+		?? tryAssistantOpeningTitle(messages)
 		?? tryCleanedSentence(messages)
 		?? generateFromKeywords(messages);
 }
 
-// --- Strategy 0: Assistant Topic (headings or opening statement) ---
+// --- Strategy 0: Assistant Heading Title (## headings + bold pseudo-headings) ---
 
-const GREETING_PATTERN = /^(sure|absolutely|of course|great question|good question|certainly|definitely|i'?d be happy to|i can help|happy to help|here'?s|let me|okay|yes)[,!.]?\s*/i;
-
-function tryAssistantTopicTitle(messages: Message[]): string | null {
+function tryAssistantHeadingTitle(messages: Message[]): string | null {
 	const assistantMessages = messages.filter(m => m.role === 'assistant');
 	if (assistantMessages.length === 0) return null;
 
-	// Try headings first
-	const headingTitle = tryHeadingTitle(assistantMessages, messages);
-	if (headingTitle) return headingTitle;
-
-	// Fallback: first meaningful sentence from first assistant response
-	return tryAssistantOpeningTitle(assistantMessages[0], messages);
-}
-
-function tryHeadingTitle(assistantMessages: Message[], allMessages: Message[]): string | null {
 	const headings: { text: string; level: number }[] = [];
 
 	for (const msg of assistantMessages) {
 		const lines = msg.plainText.split('\n');
 		for (const line of lines) {
-			const match = line.match(/^(#{2,4})\s+(.+)/);
-			if (!match) continue;
+			// Standard markdown headings: ## through ####
+			const headingMatch = line.match(/^(#{2,4})\s+(.+)/);
+			if (headingMatch) {
+				const level = headingMatch[1].length;
+				let text = headingMatch[2].trim();
+				text = cleanHeadingText(text);
+				if (text.length >= 3) {
+					headings.push({ text, level });
+				}
+				continue;
+			}
 
-			const level = match[1].length;
-			let text = match[2].trim();
-
-			// Strip markdown formatting
-			text = text
-				.replace(/\*\*([^*]+)\*\*/g, '$1')
-				.replace(/\*([^*]+)\*/g, '$1')
-				.replace(/`([^`]+)`/g, '$1')
-				.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
-
-			// Strip numbering prefixes ("1.", "Step 1:", "Part A:")
-			text = text.replace(/^(\d+\.\s*|step\s+\d+[:.]\s*|part\s+[a-z0-9]+[:.]\s*)/i, '').trim();
-
-			if (text.length >= 3) {
-				headings.push({ text, level });
+			// Bold pseudo-headings: **Topic** on its own line (no surrounding prose)
+			const trimmed = line.trim();
+			const boldMatch = trimmed.match(/^\*\*([^*]{3,60})\*\*$/);
+			if (boldMatch) {
+				let text = boldMatch[1].trim();
+				text = cleanHeadingText(text);
+				if (text.length >= 3) {
+					headings.push({ text, level: 3 });
+				}
 			}
 		}
 	}
@@ -172,22 +166,19 @@ function tryHeadingTitle(assistantMessages: Message[], allMessages: Message[]): 
 	let bestHeading = headings[0].text;
 	let bestScore = 0;
 	for (const [, entry] of headingCounts) {
-		// Invert level so h2 (level 2) scores higher than h4 (level 4)
 		const score = entry.count * 10 + (6 - entry.bestLevel);
 		if (score > bestScore) {
 			bestScore = score;
-			// Find the original-cased version
 			const original = headings.find(h => h.text.toLowerCase() === [...headingCounts.entries()].find(([, v]) => v === entry)![0]);
 			if (original) bestHeading = original.text;
 		}
 	}
 
 	// Combine with user context if the heading is short/generic
-	const firstUser = allMessages.find(m => m.role === 'user');
+	const firstUser = messages.find(m => m.role === 'user');
 	if (firstUser && bestHeading.length < 25) {
 		const kernel = extractTopicKernel(firstUser.plainText);
 		if (kernel && kernel.length > 2) {
-			// Avoid redundancy: only add kernel if it doesn't overlap with heading
 			const headingLower = bestHeading.toLowerCase();
 			const kernelLower = kernel.toLowerCase();
 			if (!headingLower.includes(kernelLower) && !kernelLower.includes(headingLower)) {
@@ -204,17 +195,38 @@ function tryHeadingTitle(assistantMessages: Message[], allMessages: Message[]): 
 	return truncateAtWord(titled, MAX_TITLE_LENGTH);
 }
 
-function tryAssistantOpeningTitle(firstAssistant: Message, allMessages: Message[]): string | null {
+function cleanHeadingText(text: string): string {
+	return text
+		.replace(/\*\*([^*]+)\*\*/g, '$1')
+		.replace(/\*([^*]+)\*/g, '$1')
+		.replace(/`([^`]+)`/g, '$1')
+		.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+		.replace(/^(\d+\.\s*|step\s+\d+[:.]\s*|part\s+[a-z0-9]+[:.]\s*)/i, '')
+		.trim();
+}
+
+// --- Strategy 3 (after entity): Assistant Opening Title (gated) ---
+
+const GREETING_PATTERN = /^(sure|absolutely|of course|great question|good question|certainly|definitely|i'?d be happy to|i can help|happy to help|here'?s|let me|okay|yes)[,!.]?\s*/i;
+
+// Conversational pronouns that indicate full-sentence prose, not a topic label
+const CONVERSATIONAL_PRONOUNS = /\b(you|your|you're|you'll|you've|we|we're|we'll|we've|i'm|i'll|i've|i'd)\b/i;
+
+function tryAssistantOpeningTitle(messages: Message[]): string | null {
+	const assistantMessages = messages.filter(m => m.role === 'assistant');
+	if (assistantMessages.length === 0) return null;
+
+	const firstAssistant = assistantMessages[0];
 	const text = firstAssistant.plainText.trim();
 	const lines = text.split('\n')
 		.map(l => l.trim())
 		.filter(l => l.length >= 15)
-		.filter(l => !/^#{1,6}\s/.test(l))         // skip headings
-		.filter(l => !/^[-*+]\s/.test(l))           // skip list items
-		.filter(l => !/^\d+\.\s/.test(l))           // skip numbered lists
-		.filter(l => !/^[-=]{3,}$/.test(l))         // skip dividers
-		.filter(l => !/^```/.test(l))               // skip code fences
-		.filter(l => !/(https?:)?\/\/\S+/.test(l)); // skip URL-heavy lines
+		.filter(l => !/^#{1,6}\s/.test(l))
+		.filter(l => !/^[-*+]\s/.test(l))
+		.filter(l => !/^\d+\.\s/.test(l))
+		.filter(l => !/^[-=]{3,}$/.test(l))
+		.filter(l => !/^```/.test(l))
+		.filter(l => !/(https?:)?\/\/\S+/.test(l));
 
 	if (lines.length === 0) return null;
 
@@ -236,10 +248,20 @@ function tryAssistantOpeningTitle(firstAssistant: Message, allMessages: Message[
 	sentence = sentence.replace(/^(i'?ll\s+(?:provide|give|share|cover|explain|outline|break down)\s+(?:a\s+|an\s+|the\s+)?)/i, '').trim();
 	sentence = sentence.replace(/^(let me\s+(?:provide|give|share|cover|explain|outline|break down)\s+(?:a\s+|an\s+|the\s+)?)/i, '').trim();
 
+	// Apply artifact stripping (normalize unicode, strip leading punctuation)
+	sentence = stripLeadingArtifacts(sentence);
+
 	if (sentence.length < 8) return null;
 
+	// Quality gate: reject conversational prose
+	if (CONVERSATIONAL_PRONOUNS.test(sentence)) return null;
+	// Reject if it starts with punctuation after stripping
+	if (/^[^a-zA-Z0-9]/.test(sentence)) return null;
+	// Reject full-sentence prose (over ~50 chars is likely a sentence, not a topic)
+	if (sentence.length > 50) return null;
+
 	// Combine with user context for short results
-	const firstUser = allMessages.find(m => m.role === 'user');
+	const firstUser = messages.find(m => m.role === 'user');
 	if (firstUser && sentence.length < 25) {
 		const kernel = extractTopicKernel(firstUser.plainText);
 		if (kernel && kernel.length > 2) {
@@ -425,7 +447,7 @@ function fuzzyMatch(a: string, b: string): boolean {
 	return false;
 }
 
-function extractEntities(messages: Message[]): string[] {
+export function extractEntities(messages: Message[]): string[] {
 	const entityCounts = new Map<string, number>();
 
 	for (const msg of messages) {
