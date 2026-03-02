@@ -6,6 +6,7 @@ import { sanitizeFilename } from './sanitize';
 import { renderTemplate } from '../utils/templates';
 import { generateIndexNote } from './index-note-generator';
 import { buildSummaryBlock } from './summary-builder';
+import { extractEntities } from '../segmentation/title-generator';
 
 export function generateNotes(
 	conversation: ParsedConversation,
@@ -28,8 +29,9 @@ export function generateNotes(
 		segment_total: String(segments.length),
 	};
 
+	const indexTopic = buildIndexTopic(conversation);
 	const indexNoteName = sanitizeFilename(
-		renderTemplate(config.namingTemplate, { ...baseVars, topic: 'Index' })
+		renderTemplate(config.namingTemplate, { ...baseVars, topic: indexTopic })
 	);
 
 	const segLinks = resolveLinks(segments, indexNoteName, config.namingTemplate, baseVars);
@@ -201,6 +203,13 @@ function generateTranscriptNote(
 		},
 		isIndex: false,
 	};
+}
+
+function buildIndexTopic(conversation: ParsedConversation): string {
+	const entities = extractEntities(conversation.messages);
+	if (entities.length === 0) return 'Index';
+	const label = entities.slice(0, 3).join(' ');
+	return `${label} Index`;
 }
 
 function formatDate(date: Date | null): string {
