@@ -1,4 +1,5 @@
 import type { Message } from '../types';
+import { extractEntities } from './title-generator';
 
 interface DomainPattern {
 	patterns: RegExp[];
@@ -81,9 +82,40 @@ const DOMAIN_PATTERNS: DomainPattern[] = [
 
 const MAX_TAGS = 5;
 
+/**
+ * Scale minMatches by segment message count so short segments need higher
+ * keyword density to qualify for a domain tag. Prevents every segment in a
+ * single-domain conversation from getting identical tags.
+ */
+function scaledMinMatches(baseMin: number, messageCount: number): number {
+	// Short segments (<=3 msgs) need 1.5x base matches
+	// Medium segments (4-6 msgs) use base matches
+	// Larger segments use base matches as-is
+	if (messageCount <= 3) return Math.ceil(baseMin * 1.5);
+	return baseMin;
+}
+
+/**
+ * Build a narrowing entity sub-tag from the segment's top entity.
+ * Lowercases and sanitizes the entity for use as a tag path component.
+ */
+function entitySubTag(messages: Message[]): string | null {
+	const entities = extractEntities(messages);
+	if (entities.length === 0) return null;
+
+	// Use the top entity, lowercased and slug-ified
+	const slug = entities[0]
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '-')
+		.replace(/^-+|-+$/g, '');
+
+	return slug.length >= 2 ? slug : null;
+}
+
 export function generateTags(messages: Message[], tagPrefix: string): string[] {
 	const allText = messages.map(m => m.plainText).join(' ');
 	const matchedTags = new Set<string>();
+	const messageCount = messages.length;
 
 	const normalizedPrefix = tagPrefix.replace(/\/+$/, '');
 
@@ -99,13 +131,20 @@ export function generateTags(messages: Message[], tagPrefix: string): string[] {
 			}
 		}
 
-		if (totalMatches >= domain.minMatches) {
+		const threshold = scaledMinMatches(domain.minMatches, messageCount);
+		if (totalMatches >= threshold) {
 			matchedTags.add(`${normalizedPrefix}/${domain.tag}`);
 		}
 	}
 
 	if (matchedTags.size === 0) {
 		matchedTags.add(normalizedPrefix);
+	}
+
+	// Append entity-based sub-tag for specificity
+	const subTag = entitySubTag(messages);
+	if (subTag && matchedTags.size < MAX_TAGS) {
+		matchedTags.add(`${normalizedPrefix}/${subTag}`);
 	}
 
 	return [...matchedTags].slice(0, MAX_TAGS);
