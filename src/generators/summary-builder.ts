@@ -5,6 +5,7 @@ import {
 	FILLER_PREFIXES,
 	ACTION_VERB_PATTERNS,
 	stripFillerAndActions,
+	stripLeadingArtifacts,
 } from '../segmentation/title-generator';
 import { extractLinks } from './key-info-extractor';
 
@@ -73,8 +74,32 @@ export function extractQuestions(messages: Message[]): string[] {
 		const text = stripMarkdown(msg.plainText.trim());
 		if (!text) continue;
 
-		let sentence = extractFirstSentence(text);
-		sentence = stripFillerAndActions(sentence);
+		const rawSentence = extractFirstSentence(text);
+
+		// Light stripping: only filler prefixes (skip action verb patterns)
+		// to preserve readable question phrasing
+		let sentence = rawSentence;
+		let changed = true;
+		while (changed) {
+			changed = false;
+			for (const pattern of FILLER_PREFIXES) {
+				const stripped = sentence.replace(pattern, '');
+				if (stripped !== sentence) {
+					sentence = stripped.trim().replace(/^[,;:.!?\-]+\s*/, '');
+					changed = true;
+				}
+			}
+		}
+
+		// If light stripping reduced too aggressively, fall back to cleaned original
+		if (sentence.length < 20) {
+			const fallback = cleanMarkdownInline(rawSentence).trim();
+			if (fallback.length >= 20) {
+				sentence = fallback;
+			}
+		}
+
+		sentence = stripLeadingArtifacts(sentence);
 		sentence = sentence.replace(/^[,;:.!?\-]+\s*/, '').trim();
 
 		if (sentence.length < 5) continue;
@@ -149,11 +174,21 @@ export function extractTopics(messages: Message[]): string[] {
 				: opening.slice(0, 150).trim();
 
 			sentence = cleanMarkdownInline(sentence);
+			sentence = stripLeadingArtifacts(sentence);
+
+			// Filter out conversational sentences (not useful as topic labels)
+			if (/\b(you|your|you're|you'll|we|we're|i'm|i'll|i've)\b/i.test(sentence)) continue;
+
 			if (sentence.length < 10) continue;
 
-			const truncated = truncateItem(sentence);
-			if (!isDuplicate(truncated, topics)) {
-				topics.push(truncated);
+			// Cap topic length at 80 chars with word-boundary truncation
+			if (sentence.length > 80) {
+				const lastSpace = sentence.lastIndexOf(' ', 80);
+				sentence = lastSpace > 40 ? sentence.slice(0, lastSpace) : sentence.slice(0, 80);
+			}
+
+			if (!isDuplicate(sentence, topics)) {
+				topics.push(sentence);
 			}
 
 			if (topics.length >= MAX_TOPICS) break;
@@ -178,9 +213,15 @@ export function extractTakeaways(messages: Message[]): string[] {
 			const matchesPattern = TAKEAWAY_PATTERNS.some(p => p.test(sentence));
 			if (!matchesPattern) continue;
 
+			// Filter out user-directed prompts
+			if (/\b(if you tell me|let me know|you can also|feel free to)\b/i.test(sentence)) continue;
+
 			let cleaned = cleanMarkdownInline(sentence).trim();
 			// Strip leading list markers that survived
 			cleaned = cleaned.replace(/^[-*+]\s+/, '').replace(/^\d+\.\s+/, '');
+			// Strip embedded newlines before truncation
+			cleaned = cleaned.replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
+			cleaned = stripLeadingArtifacts(cleaned);
 
 			if (cleaned.length < 15) continue;
 
@@ -244,15 +285,33 @@ export function extractTakeaways(messages: Message[]): string[] {
 	return takeaways;
 }
 
+// Common abbreviations that should not trigger sentence splits
+const ABBREVIATIONS = /\b(?:St|Mr|Mrs|Ms|Dr|Jr|Sr|vs|etc|e\.g|i\.e|U\.S|U\.K|U\.S\.A|approx|govt|dept|assn|corp|inc|ltd|co|est|min|max|avg|no|vol|ch|pt|fig|ref)\.\s/gi;
+// Placeholder that won't match sentence-end regex
+const ABBREV_PLACEHOLDER = '\u0000ABBR\u0000 ';
+
 function splitIntoSentences(text: string): string[] {
-	// Strip code blocks first to avoid matching inside them
-	const stripped = text.replace(/```[\s\S]*?```/g, '');
+	// Strip code blocks first
+	let stripped = text.replace(/```[\s\S]*?```/g, '');
+
+	// Protect abbreviations from sentence splitting
+	const abbrevMap: string[] = [];
+	stripped = stripped.replace(ABBREVIATIONS, (match) => {
+		abbrevMap.push(match);
+		return ABBREV_PLACEHOLDER;
+	});
+
 	const sentences: string[] = [];
 
 	// Split on sentence-ending punctuation followed by space or newline
 	const parts = stripped.split(/(?<=[.!?])\s+/);
 	for (const part of parts) {
-		const trimmed = part.trim();
+		// Restore abbreviations
+		let restored = part;
+		while (restored.includes('\u0000ABBR\u0000') && abbrevMap.length > 0) {
+			restored = restored.replace(ABBREV_PLACEHOLDER, abbrevMap.shift()!);
+		}
+		const trimmed = restored.trim();
 		if (trimmed.length > 0) {
 			sentences.push(trimmed);
 		}
