@@ -628,7 +628,32 @@ function generateFromKeywords(messages: Message[]): string {
 	return toTitleCase(sorted.join(' '));
 }
 
-// --- Shared Utilities (exported for reuse by summary-builder) ---
+// --- Shared Utilities (exported for reuse by summary-builder, sanitize) ---
+
+/**
+ * Normalize Unicode punctuation to ASCII equivalents, then strip
+ * leading punctuation artifacts (dashes, colons, parens, quotes).
+ */
+export function stripLeadingArtifacts(text: string): string {
+	let result = text
+		// Smart double quotes -> ASCII
+		.replace(/[\u201C\u201D]/g, '"')
+		// Smart single quotes / apostrophes -> ASCII
+		.replace(/[\u2018\u2019]/g, "'")
+		// Em dash -> --
+		.replace(/\u2014/g, '--')
+		// En dash -> -
+		.replace(/\u2013/g, '-')
+		// Ellipsis -> ...
+		.replace(/\u2026/g, '...')
+		// Non-breaking space -> space
+		.replace(/\u00A0/g, ' ');
+
+	// Strip leading punctuation: dashes, colons, semicolons, parens, quotes, whitespace
+	result = result.replace(/^[\s\-:;("']+/, '').trim();
+
+	return result;
+}
 
 export function stripMarkdown(text: string): string {
 	return text
