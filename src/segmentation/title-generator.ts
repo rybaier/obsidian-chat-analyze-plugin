@@ -582,7 +582,7 @@ function extractTopicKernel(text: string): string {
 	return '';
 }
 
-// --- Strategy 3: Cleaned First Sentence ---
+// --- Strategy 4: Cleaned First Sentence ---
 
 function tryCleanedSentence(messages: Message[]): string | null {
 	const firstUser = messages.find(m => m.role === 'user');
@@ -629,7 +629,7 @@ function tryCleanedSentence(messages: Message[]): string | null {
 	return truncateAtWord(titled, MAX_TITLE_LENGTH);
 }
 
-// --- Strategy 4: Keyword Fallback ---
+// --- Strategy 5: Keyword Fallback ---
 
 function generateFromKeywords(messages: Message[]): string {
 	const allText = messages.map(m => m.plainText).join(' ');

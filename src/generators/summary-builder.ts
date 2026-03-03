@@ -133,6 +133,7 @@ export function extractTopics(messages: Message[]): string[] {
 
 			let text = match[1].trim();
 			text = cleanMarkdownInline(text);
+			text = stripLeadingArtifacts(text);
 			// Strip numbering prefixes
 			text = text.replace(/^(\d+\.\s*|step\s+\d+[:.]\s*|part\s+[a-z0-9]+[:.]\s*)/i, '').trim();
 
