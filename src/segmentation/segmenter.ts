@@ -1,7 +1,7 @@
 import type { ParsedConversation, Segment, SegmentationConfig, Message } from '../types';
 import { scoreBoundaries } from './scorer';
 import { generateTitle } from './title-generator';
-import { generateTags } from './tag-generator';
+import { generateTags, entitySubTag } from './tag-generator';
 import { segmentWithOllama } from './ollama/ollama-segmenter';
 
 function generateId(): string {
@@ -84,12 +84,22 @@ export function segment(
 	const lastConfidence = boundaryMap.get(segStart) || 1.0;
 	segments.push(buildSegment(lastMessages, segStart, messages.length - 1, lastConfidence, tagPrefix));
 
-	// For documents, generate tags from the full text so domain patterns
-	// have enough keyword occurrences to meet minMatches thresholds
+	// For documents, generate domain tags from the full text (enough keyword
+	// density), but preserve per-segment entity sub-tags for differentiation
 	if (conversation.contentType === 'document') {
 		const documentTags = generateTags(messages, tagPrefix);
+		const normalizedPrefix = tagPrefix.replace(/\/+$/, '');
 		for (const seg of segments) {
-			seg.tags = documentTags;
+			const segEntityTag = entitySubTag(seg.messages);
+			if (segEntityTag) {
+				const fullEntityTag = `${normalizedPrefix}/${segEntityTag}`;
+				// Merge: document-wide domain tags + per-segment entity tag
+				const merged = new Set(documentTags);
+				merged.add(fullEntityTag);
+				seg.tags = [...merged].slice(0, 5);
+			} else {
+				seg.tags = documentTags;
+			}
 		}
 	}
 

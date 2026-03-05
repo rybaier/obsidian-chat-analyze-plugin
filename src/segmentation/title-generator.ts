@@ -52,6 +52,19 @@ const CAPITALIZED_EXCLUSIONS = new Set([
 	'Mountain', 'Valley', 'Lake', 'River', 'Ocean', 'Sea',
 	'Passport', 'Visa', 'Citizenship', 'Residency', 'Program',
 	'Programs', 'Application', 'Process', 'Requirement',
+	// Month names and abbreviations
+	'January', 'February', 'March', 'April', 'June', 'July',
+	'August', 'September', 'October', 'November', 'December',
+	'Jan', 'Feb', 'Mar', 'Apr', 'Jun', 'Jul', 'Aug',
+	'Sep', 'Sept', 'Oct', 'Nov', 'Dec',
+	// Contraction artifacts from smart apostrophe stripping
+	'Id', 'Ill', 'Im', 'Ive', 'Dont', 'Wont', 'Cant',
+	'Weve', 'Youre', 'Theyre', 'Youll', 'Theyll',
+	// Generic words that look like entities
+	'Level', 'Category', 'Type', 'Group', 'Section', 'Total',
+	'Summary', 'Overview', 'Details', 'Action', 'Option', 'Options',
+	'Step', 'Tip', 'Key', 'Quick', 'Full', 'Best', 'Top', 'Main',
+	'Real', 'True',
 ]);
 
 export const FILLER_PREFIXES = [
@@ -382,10 +395,25 @@ function tryEntityTitle(messages: Message[]): string | null {
 			prevKernel = kernel;
 			kernel = kernel.replace(/\s+(is|are|was|were|of|in|for|and|or|but|the|a|an|to|on|at|by|with|from|about)$/i, '').trim();
 		}
-		// Strip leading dangling prepositions (including if it's the entire kernel)
-		kernel = kernel.replace(/^(in|of|for|on|at|by|with|from|about|to)(\s+|$)/i, '').trim();
+		// Strip leading dangling prepositions/conjunctions
+		kernel = kernel.replace(/^(in|of|for|on|at|by|with|from|about|to|if|so|but|when|where|because|since|then)(\s+|$)/i, '').trim();
 		// Clean up leftover punctuation/whitespace
 		kernel = kernel.replace(/^[,;:\s]+|[,;:\s]+$/g, '').trim();
+
+		// Normalize unicode artifacts in kernel
+		kernel = stripLeadingArtifacts(kernel);
+
+		// Strip unbalanced parentheses/brackets
+		if (kernel.includes('(') && !kernel.includes(')')) {
+			kernel = kernel.replace(/\(.*$/, '').trim();
+		}
+		if (kernel.includes('[') && !kernel.includes(']')) {
+			kernel = kernel.replace(/\[.*$/, '').trim();
+		}
+
+		// Reject kernel if it contains conversational pronouns
+		if (CONVERSATIONAL_PRONOUNS.test(kernel)) kernel = '';
+
 		// If kernel is just a short noise word, drop it entirely
 		if (kernel.length <= 3) kernel = '';
 	}
@@ -451,7 +479,9 @@ export function extractEntities(messages: Message[]): string[] {
 	const entityCounts = new Map<string, number>();
 
 	for (const msg of messages) {
-		const text = normalizeAbbreviations(stripMarkdown(msg.plainText));
+		// Normalize smart quotes/apostrophes so contractions like I'd stay intact
+		let text = normalizeAbbreviations(stripMarkdown(msg.plainText));
+		text = text.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"');
 		const sentences = text.split(/[.!?\n]+/).filter(s => s.trim().length > 0);
 		// User messages get 3x weight so query topics outrank assistant content
 		const weight = msg.role === 'user' ? 3 : 1;

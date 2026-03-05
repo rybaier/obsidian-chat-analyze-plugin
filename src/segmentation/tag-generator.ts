@@ -99,7 +99,7 @@ function scaledMinMatches(baseMin: number, messageCount: number): number {
  * Build a narrowing entity sub-tag from the segment's top entity.
  * Lowercases and sanitizes the entity for use as a tag path component.
  */
-function entitySubTag(messages: Message[]): string | null {
+export function entitySubTag(messages: Message[]): string | null {
 	const entities = extractEntities(messages);
 	if (entities.length === 0) return null;
 

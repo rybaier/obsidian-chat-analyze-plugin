@@ -2,6 +2,7 @@ import type { ParsedConversation, Message, ContentType } from '../types';
 import type { IChatParser, InputFormat, ParseOptions } from './parser-interface';
 import { maskCodeBlocks, unmaskCodeBlocks } from './code-block-guard';
 import { parseContentBlocks } from './content-block-parser';
+import { isLikelyChatGPTPaste } from './format-detector';
 
 interface SpeakerPattern {
 	regex: RegExp;
@@ -51,9 +52,35 @@ export class MarkdownParser implements IChatParser {
 
 		let messages: Message[];
 		let contentType: ContentType = 'chat';
+		let source: 'markdown' | 'chatgpt' = 'markdown';
 
 		if (detectedPattern) {
 			messages = this.parseWithPattern(masked, blocks, detectedPattern, warnings);
+		} else if (isLikelyChatGPTPaste(input)) {
+			messages = this.parseAsInferredChat(masked, blocks);
+			if (messages.length >= 2) {
+				contentType = 'chat';
+				source = 'chatgpt';
+			} else {
+				const strippedMasked = this.stripFrontmatter(masked);
+				const sectionMessages = this.splitBySections(strippedMasked, blocks);
+				if (sectionMessages.length >= 2) {
+					messages = sectionMessages;
+					contentType = 'document';
+				} else {
+					const content = unmaskCodeBlocks(input.trim(), blocks);
+					const contentBlocks = parseContentBlocks(content);
+					messages = [{
+						id: generateId(),
+						index: 0,
+						role: 'user',
+						contentBlocks,
+						plainText: content,
+						timestamp: null,
+						metadata: {},
+					}];
+				}
+			}
 		} else {
 			const strippedMasked = this.stripFrontmatter(masked);
 			const sectionMessages = this.splitBySections(strippedMasked, blocks);
@@ -89,7 +116,7 @@ export class MarkdownParser implements IChatParser {
 		return {
 			id: generateId(),
 			title: frontmatterTitle || title,
-			source: 'markdown',
+			source,
 			contentType,
 			inputMethod: 'paste',
 			createdAt: null,
@@ -171,6 +198,93 @@ export class MarkdownParser implements IChatParser {
 		}
 
 		return messages;
+	}
+
+	/**
+	 * Parse unlabeled ChatGPT paste by splitting on headings and inferring
+	 * roles from section length/structure:
+	 * - Short sections (<50 words, no sub-headings) -> user
+	 * - Long sections (with headings, lists, structured content) -> assistant
+	 */
+	private parseAsInferredChat(masked: string, blocks: Map<string, string>): Message[] {
+		const strippedMasked = this.stripFrontmatter(masked);
+		const lines = strippedMasked.split('\n');
+		const sections: string[][] = [];
+		let current: string[] = [];
+
+		for (const line of lines) {
+			if (/^#{1,3}\s+/.test(line)) {
+				if (current.length > 0) {
+					sections.push(current);
+				}
+				current = [line];
+			} else {
+				current.push(line);
+			}
+		}
+		if (current.length > 0) {
+			sections.push(current);
+		}
+
+		// Merge consecutive sections that share the same inferred role
+		const merged: { role: 'user' | 'assistant'; lines: string[] }[] = [];
+		for (const section of sections) {
+			const text = section.join('\n');
+			const wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
+			if (wordCount < 5) continue;
+
+			const role = this.inferRole(text, wordCount);
+
+			if (merged.length > 0 && merged[merged.length - 1].role === role) {
+				merged[merged.length - 1].lines.push(...section);
+			} else {
+				merged.push({ role, lines: [...section] });
+			}
+		}
+
+		const messages: Message[] = [];
+		let index = 0;
+
+		for (const entry of merged) {
+			const raw = entry.lines.join('\n').trim();
+			const content = unmaskCodeBlocks(raw, blocks);
+			if (!content || content.split(/\s+/).filter(w => w.length > 0).length < 5) continue;
+
+			const contentBlocks = parseContentBlocks(content);
+			messages.push({
+				id: generateId(),
+				index,
+				role: entry.role,
+				contentBlocks,
+				plainText: content,
+				timestamp: null,
+				metadata: {},
+			});
+			index++;
+		}
+
+		return messages;
+	}
+
+	private inferRole(sectionText: string, wordCount: number): 'user' | 'assistant' {
+		// Short sections without structural elements are likely user questions
+		if (wordCount < 50) {
+			const hasSubHeadings = /\n#{2,}\s+/.test(sectionText);
+			const hasLists = /\n\s*[-*+]\s+/.test(sectionText) || /\n\s*\d+\.\s+/.test(sectionText);
+			if (!hasSubHeadings && !hasLists) return 'user';
+		}
+
+		// Long sections with structured content are likely assistant responses
+		const hasHeadings = /^#{2,}\s+/m.test(sectionText);
+		const hasBoldLines = /^\s*\*\*[^*]+\*\*\s*$/m.test(sectionText);
+		const hasLists = /^\s*[-*+]\s+/m.test(sectionText) || /^\s*\d+\.\s+/m.test(sectionText);
+		const structureSignals = (hasHeadings ? 1 : 0) + (hasBoldLines ? 1 : 0) + (hasLists ? 1 : 0);
+
+		if (wordCount > 100 && structureSignals >= 1) return 'assistant';
+		if (wordCount > 50 && structureSignals >= 2) return 'assistant';
+
+		// Default: short = user, long = assistant
+		return wordCount < 50 ? 'user' : 'assistant';
 	}
 
 	private stripFrontmatter(masked: string): string {
