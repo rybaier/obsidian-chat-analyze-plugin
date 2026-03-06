@@ -39,6 +39,10 @@ export function parseInput(input: string, options?: ParseOptions): ParsedConvers
 		throw new Error(`No JSON parser could handle the input (detected: ${format.source}).`);
 	}
 
+	if (options?.sourceOverride) {
+		return parseWithOverride(input, options);
+	}
+
 	for (const parser of pasteParsers) {
 		if (parser.canParse(input)) {
 			return parser.parse(input, options);
@@ -46,6 +50,41 @@ export function parseInput(input: string, options?: ParseOptions): ParsedConvers
 	}
 
 	throw new Error('No parser could handle the input.');
+}
+
+const chatgptParser = new ChatGPTPasteParser();
+const claudePasteParser = new ClaudePasteParser();
+const claudeWebParser = new ClaudeWebParser();
+const markdownParser = new MarkdownParser();
+
+function parseWithOverride(input: string, options: ParseOptions): ParsedConversation {
+	const override = options.sourceOverride!;
+
+	if (override === 'chatgpt') {
+		if (chatgptParser.canParse(input)) {
+			return chatgptParser.parse(input, options);
+		}
+		const result = markdownParser.parse(input, options);
+		result.source = 'chatgpt';
+		result.contentType = 'chat';
+		return result;
+	}
+
+	if (override === 'claude') {
+		if (claudePasteParser.canParse(input)) {
+			return claudePasteParser.parse(input, options);
+		}
+		if (claudeWebParser.canParse(input)) {
+			return claudeWebParser.parse(input, options);
+		}
+		const result = markdownParser.parse(input, options);
+		result.source = 'claude';
+		result.contentType = 'chat';
+		return result;
+	}
+
+	// 'document' override: go straight to markdown
+	return markdownParser.parse(input, options);
 }
 
 export { detectFormat } from './format-detector';

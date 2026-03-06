@@ -11,6 +11,7 @@ export type InputFormat =
 export interface ParseOptions {
 	conversationId?: string;
 	branchStrategy?: 'current' | 'longest';
+	sourceOverride?: 'chatgpt' | 'claude' | 'document';
 }
 
 export interface IChatParser {

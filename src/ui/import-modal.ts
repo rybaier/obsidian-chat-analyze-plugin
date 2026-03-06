@@ -2,7 +2,7 @@ import { Modal, Setting, Notice, type App } from 'obsidian';
 import JSZip from 'jszip';
 import type { ParsedConversation, Segment, ImportConfig, ChatSplitterSettings, SpeakerStyle } from '../types';
 import { GRANULARITY_PRESETS } from '../types';
-import { parseInput, detectFormat, listConversations, type InputFormat } from '../parsers';
+import { parseInput, detectFormat, listConversations, type InputFormat, type ParseOptions } from '../parsers';
 import { segment, segmentWithFallback, DEFAULT_SIGNAL_WEIGHTS } from '../segmentation';
 import { generateNotes } from '../generators';
 import { resolveCollision } from '../generators';
@@ -29,6 +29,7 @@ export class ImportModal extends Modal {
 	private importConfig: ImportConfig;
 	private detectedFormat: InputFormat | null = null;
 	private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+	private sourceOverride: 'auto' | 'chatgpt' | 'claude' | 'document' = 'auto';
 	private availableConversations: ConversationChoice[] = [];
 	private selectedConversationId: string | null = null;
 
@@ -118,6 +119,21 @@ export class ImportModal extends Modal {
 			.addText(text => {
 				text.setValue(this.importConfig.tagPrefix);
 				text.onChange(value => { this.importConfig.tagPrefix = value; });
+			});
+
+		new Setting(step1Settings)
+			.setName('Source')
+			.setDesc('Override auto-detection if the format is wrong')
+			.addDropdown(drop => {
+				drop.addOption('auto', 'Auto');
+				drop.addOption('chatgpt', 'ChatGPT');
+				drop.addOption('claude', 'Claude');
+				drop.addOption('document', 'Document');
+				drop.setValue(this.sourceOverride);
+				drop.onChange(value => {
+					this.sourceOverride = value as 'auto' | 'chatgpt' | 'claude' | 'document';
+					this.updateFormatBadge(badge);
+				});
 			});
 
 		const analyzeBtn = this.contentEl.createEl('button', {
@@ -268,6 +284,18 @@ export class ImportModal extends Modal {
 			return;
 		}
 
+		if (this.sourceOverride !== 'auto') {
+			const labels: Record<string, string> = {
+				chatgpt: 'ChatGPT (override)',
+				claude: 'Claude (override)',
+				document: 'Document (override)',
+			};
+			badge.setText(labels[this.sourceOverride]);
+			badge.className = 'chat-splitter-format-badge detected';
+			this.detectedFormat = detectFormat(this.rawInput);
+			return;
+		}
+
 		try {
 			const format = detectFormat(this.rawInput);
 			this.detectedFormat = format;
@@ -300,9 +328,13 @@ export class ImportModal extends Modal {
 				return;
 			}
 
-			const parseOptions = this.selectedConversationId
-				? { conversationId: this.selectedConversationId }
-				: undefined;
+			const parseOptions: ParseOptions = {};
+			if (this.selectedConversationId) {
+				parseOptions.conversationId = this.selectedConversationId;
+			}
+			if (this.sourceOverride !== 'auto') {
+				parseOptions.sourceOverride = this.sourceOverride;
+			}
 
 			debugLog('Format detected:', this.detectedFormat);
 			this.conversation = parseInput(this.rawInput, parseOptions);
