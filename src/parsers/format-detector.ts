@@ -20,10 +20,6 @@ export function detectFormat(input: string): InputFormat {
 		return { source: 'claude', method: 'paste' };
 	}
 
-	if (isLikelyChatGPTPaste(trimmed)) {
-		return { source: 'chatgpt', method: 'paste' };
-	}
-
 	return { source: 'markdown', method: 'paste' };
 }
 
@@ -82,70 +78,6 @@ function isClaudePaste(input: string): boolean {
 		if (hasHuman && hasAssistant) return true;
 	}
 	return false;
-}
-
-/**
- * Detect ChatGPT conversations pasted without speaker labels by looking for
- * structural patterns typical of ChatGPT output: high heading density,
- * bold label lines, numbered bold items, and AI disclaimers.
- *
- * ChatGPT responses are heavily structured (lists, headings, bold labels)
- * so plain-paragraph counting doesn't work -- most lines start with
- * structural markers like -, *, digits, or #.
- */
-export function isLikelyChatGPTPaste(input: string): boolean {
-	const { masked } = maskCodeBlocks(input);
-	const lines = masked.split('\n');
-
-	// Yield to Claude web detection: if the content has date stamps that
-	// match Claude web format, it's not an unlabeled ChatGPT paste
-	const datePattern =
-		/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}$/;
-	let dateStampCount = 0;
-	for (const line of lines) {
-		if (datePattern.test(line.trim())) dateStampCount++;
-	}
-	if (dateStampCount >= 2) return false;
-
-	let score = 0;
-
-	// Pattern 1: High heading density (h1-h4). ChatGPT uses many headings
-	// to organize long responses across multiple topics.
-	let headingCount = 0;
-	for (const line of lines) {
-		if (/^#{1,4}\s+.+/.test(line.trim())) headingCount++;
-	}
-	if (headingCount >= 8) score += 2;
-	else if (headingCount >= 4) score++;
-
-	// Pattern 2: Bold label lines -- standalone **Topic** or **Label:**
-	// ChatGPT uses these as pseudo-headings and list item labels.
-	// Allow trailing colon/punctuation outside the bold markers.
-	let boldLabelCount = 0;
-	for (const line of lines) {
-		const trimmed = line.trim();
-		if (/^\*\*[^*]{3,60}\*\*[:\s]*$/.test(trimmed)) boldLabelCount++;
-	}
-	if (boldLabelCount >= 3) score++;
-
-	// Pattern 3: Numbered items with bold (1. **Item** -- ...)
-	let numberedBoldCount = 0;
-	for (const line of lines) {
-		if (/^\d+\.\s+\*\*/.test(line.trim())) numberedBoldCount++;
-	}
-	if (numberedBoldCount >= 3) score++;
-
-	// Pattern 4: AI disclaimer text
-	const disclaimerPattern = /\b(as an AI|as of my (knowledge|last) (cutoff|update|training)|I('m| am) an AI|not (a )?(licensed|certified|qualified)|I can't provide (medical|legal|financial))\b/i;
-	if (disclaimerPattern.test(input)) score++;
-
-	// Pattern 5: Large document with heading structure -- ChatGPT conversations
-	// produce long, multi-topic output. A short doc with headings is just markdown.
-	const totalWords = masked.split(/\s+/).length;
-	if (totalWords >= 800 && headingCount >= 4) score++;
-
-	// Require at least 3 to trigger
-	return score >= 3;
 }
 
 function isClaudeWebPaste(input: string): boolean {
