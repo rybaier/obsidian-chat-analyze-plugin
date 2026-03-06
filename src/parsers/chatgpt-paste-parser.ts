@@ -1,19 +1,49 @@
-import type { ParsedConversation, Message, ContentBlock } from '../types';
+import type { ParsedConversation, Message } from '../types';
 import type { IChatParser, InputFormat, ParseOptions } from './parser-interface';
 import { maskCodeBlocks, unmaskCodeBlocks } from './code-block-guard';
 import { parseContentBlocks } from './content-block-parser';
 
 const SPEAKER_PATTERN = /^(You said|ChatGPT said|You|ChatGPT)\s*:\s*$/im;
 const THOUGHT_PATTERN = /^Thought for .*$/im;
+const MAX_USER_PARAGRAPH_LENGTH = 300;
 
 function generateId(): string {
 	return crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2, 10);
+}
+
+function isThoughtLine(line: string): boolean {
+	return THOUGHT_PATTERN.test(line.trim());
+}
+
+function isUserLikeParagraph(paragraph: string): boolean {
+	if (paragraph.length > MAX_USER_PARAGRAPH_LENGTH) return false;
+	if (/^```|^~~~/.test(paragraph)) return false;
+	if (/^#{1,6}\s/.test(paragraph)) return false;
+	if (/^[\-*+]\s/.test(paragraph)) return false;
+	if (/^\d+\.\s/.test(paragraph)) return false;
+	if (/\*\*[^*]+\*\*/.test(paragraph)) return false;
+	return true;
+}
+
+function splitIntoParagraphs(text: string): string[] {
+	return text.split(/\n\n+/).filter((p) => p.trim().length > 0);
 }
 
 export class ChatGPTPasteParser implements IChatParser {
 	readonly format: InputFormat = { source: 'chatgpt', method: 'paste' };
 
 	canParse(input: string): boolean {
+		return this.hasSpeakerLabels(input) || this.hasThoughtMarkers(input);
+	}
+
+	parse(input: string, options?: ParseOptions): ParsedConversation {
+		if (this.hasSpeakerLabels(input)) {
+			return this.parseLabeledPaste(input);
+		}
+		return this.parseUnlabeledPaste(input);
+	}
+
+	private hasSpeakerLabels(input: string): boolean {
 		const lines = input.split('\n');
 		let hasYou = false;
 		let hasChatGPT = false;
@@ -26,7 +56,11 @@ export class ChatGPTPasteParser implements IChatParser {
 		return false;
 	}
 
-	parse(input: string, options?: ParseOptions): ParsedConversation {
+	private hasThoughtMarkers(input: string): boolean {
+		return /^Thought for /im.test(input);
+	}
+
+	private parseLabeledPaste(input: string): ParsedConversation {
 		const warnings: string[] = [];
 		const { masked, blocks } = maskCodeBlocks(input);
 
@@ -90,6 +124,115 @@ export class ChatGPTPasteParser implements IChatParser {
 			index++;
 		}
 
+		return this.buildResult(messages, warnings);
+	}
+
+	private parseUnlabeledPaste(input: string): ParsedConversation {
+		const warnings: string[] = [];
+		const { masked, blocks } = maskCodeBlocks(input);
+		const lines = masked.split('\n');
+
+		// Find all "Thought for" line indices
+		const thoughtIndices: number[] = [];
+		for (let i = 0; i < lines.length; i++) {
+			if (isThoughtLine(lines[i])) {
+				thoughtIndices.push(i);
+			}
+		}
+
+		const rawMessages: { role: 'user' | 'assistant'; text: string }[] = [];
+
+		// Section before first "Thought for" = first user message
+		if (thoughtIndices.length > 0 && thoughtIndices[0] > 0) {
+			const section0 = lines.slice(0, thoughtIndices[0]).join('\n').trim();
+			if (section0) {
+				rawMessages.push({ role: 'user', text: section0 });
+			}
+		}
+
+		// Process each "Thought for" section
+		for (let i = 0; i < thoughtIndices.length; i++) {
+			const sectionStart = thoughtIndices[i] + 1;
+			const sectionEnd =
+				i + 1 < thoughtIndices.length
+					? thoughtIndices[i + 1]
+					: lines.length;
+
+			const sectionText = lines.slice(sectionStart, sectionEnd).join('\n').trim();
+			if (!sectionText) {
+				warnings.push(
+					`Empty section after "Thought for" at line ${thoughtIndices[i] + 1} was skipped`
+				);
+				continue;
+			}
+
+			const isLastSection = i === thoughtIndices.length - 1;
+
+			if (isLastSection) {
+				rawMessages.push({ role: 'assistant', text: sectionText });
+			} else {
+				// Backward-scan to separate trailing user message from assistant content
+				const paragraphs = splitIntoParagraphs(sectionText);
+
+				if (paragraphs.length === 0) {
+					continue;
+				}
+
+				let userStartIdx = paragraphs.length;
+				for (let j = paragraphs.length - 1; j >= 0; j--) {
+					if (isUserLikeParagraph(paragraphs[j].trim())) {
+						userStartIdx = j;
+					} else {
+						break;
+					}
+				}
+
+				if (userStartIdx === 0) {
+					rawMessages.push({ role: 'assistant', text: sectionText });
+				} else {
+					const assistantText = paragraphs.slice(0, userStartIdx).join('\n\n');
+					const userText = paragraphs.slice(userStartIdx).join('\n\n');
+
+					if (assistantText.trim()) {
+						rawMessages.push({ role: 'assistant', text: assistantText });
+					}
+					if (userText.trim()) {
+						rawMessages.push({ role: 'user', text: userText });
+					}
+				}
+			}
+		}
+
+		// Build final messages
+		const messages: Message[] = [];
+		let index = 0;
+
+		for (const raw of rawMessages) {
+			const content = unmaskCodeBlocks(raw.text.trim(), blocks);
+			if (!content) {
+				warnings.push(
+					`Empty ${raw.role} message at position ${index} was skipped`
+				);
+				continue;
+			}
+
+			const contentBlocks = parseContentBlocks(content);
+			messages.push({
+				id: generateId(),
+				index,
+				role: raw.role,
+				contentBlocks,
+				plainText: content,
+				timestamp: null,
+				metadata: {},
+			});
+			index++;
+		}
+
+		return this.buildResult(messages, warnings);
+	}
+
+	private buildResult(messages: Message[], warnings: string[]): ParsedConversation {
 		const title = this.extractTitle(messages);
 
 		return {

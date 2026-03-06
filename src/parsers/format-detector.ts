@@ -20,6 +20,10 @@ export function detectFormat(input: string): InputFormat {
 		return { source: 'claude', method: 'paste' };
 	}
 
+	if (hasChatGPTThoughtMarker(trimmed)) {
+		return { source: 'chatgpt', method: 'paste' };
+	}
+
 	return { source: 'markdown', method: 'paste' };
 }
 
@@ -78,6 +82,10 @@ function isClaudePaste(input: string): boolean {
 		if (hasHuman && hasAssistant) return true;
 	}
 	return false;
+}
+
+function hasChatGPTThoughtMarker(input: string): boolean {
+	return /^Thought for /im.test(input);
 }
 
 function isClaudeWebPaste(input: string): boolean {
