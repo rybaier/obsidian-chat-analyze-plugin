@@ -44,15 +44,6 @@ export class ClaudeWebParser implements IChatParser {
 
 		const { masked } = maskCodeBlocks(input);
 		const lines = masked.split('\n');
-
-		// Guard: content with many headings is a ChatGPT paste or document,
-		// not a Claude web conversation (which uses date stamps, not headings)
-		let headingCount = 0;
-		for (const line of lines) {
-			if (/^#{1,4}\s+/.test(line.trim())) headingCount++;
-		}
-		if (headingCount >= 5) return false;
-
 		let dateCount = 0;
 
 		for (const line of lines) {

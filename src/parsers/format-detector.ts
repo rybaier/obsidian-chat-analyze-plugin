@@ -97,6 +97,16 @@ export function isLikelyChatGPTPaste(input: string): boolean {
 	const { masked } = maskCodeBlocks(input);
 	const lines = masked.split('\n');
 
+	// Yield to Claude web detection: if the content has date stamps that
+	// match Claude web format, it's not an unlabeled ChatGPT paste
+	const datePattern =
+		/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}$/;
+	let dateStampCount = 0;
+	for (const line of lines) {
+		if (datePattern.test(line.trim())) dateStampCount++;
+	}
+	if (dateStampCount >= 2) return false;
+
 	let score = 0;
 
 	// Pattern 1: High heading density (h1-h4). ChatGPT uses many headings
@@ -145,16 +155,6 @@ function isClaudeWebPaste(input: string): boolean {
 
 	const { masked } = maskCodeBlocks(input);
 	const lines = masked.split('\n');
-
-	// Guard: if the content has many headings, it's likely a ChatGPT paste
-	// or a markdown document, not a Claude web conversation (which uses
-	// date stamps, not headings, to delimit turns)
-	let headingCount = 0;
-	for (const line of lines) {
-		if (/^#{1,4}\s+/.test(line.trim())) headingCount++;
-	}
-	if (headingCount >= 5) return false;
-
 	const datePattern =
 		/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}$/;
 	let dateCount = 0;
