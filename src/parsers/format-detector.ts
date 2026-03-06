@@ -86,8 +86,12 @@ function isClaudePaste(input: string): boolean {
 
 /**
  * Detect ChatGPT conversations pasted without speaker labels by looking for
- * structural patterns: alternating short/long sections, bold-only lines,
- * numbered lists, and AI disclaimer text.
+ * structural patterns typical of ChatGPT output: high heading density,
+ * bold label lines, numbered bold items, and AI disclaimers.
+ *
+ * ChatGPT responses are heavily structured (lists, headings, bold labels)
+ * so plain-paragraph counting doesn't work -- most lines start with
+ * structural markers like -, *, digits, or #.
  */
 export function isLikelyChatGPTPaste(input: string): boolean {
 	const { masked } = maskCodeBlocks(input);
@@ -95,24 +99,26 @@ export function isLikelyChatGPTPaste(input: string): boolean {
 
 	let score = 0;
 
-	// Pattern 1: Multiple ## or ### headings interspersed with plain paragraphs
+	// Pattern 1: High heading density (h1-h4). ChatGPT uses many headings
+	// to organize long responses across multiple topics.
 	let headingCount = 0;
-	let plainParaCount = 0;
+	for (const line of lines) {
+		if (/^#{1,4}\s+.+/.test(line.trim())) headingCount++;
+	}
+	if (headingCount >= 8) score += 2;
+	else if (headingCount >= 4) score++;
+
+	// Pattern 2: Bold label lines -- standalone **Topic** or **Label:**
+	// ChatGPT uses these as pseudo-headings and list item labels.
+	// Allow trailing colon/punctuation outside the bold markers.
+	let boldLabelCount = 0;
 	for (const line of lines) {
 		const trimmed = line.trim();
-		if (/^#{2,3}\s+.+/.test(trimmed)) headingCount++;
-		else if (trimmed.length > 30 && !/^[-*+#>\d]/.test(trimmed)) plainParaCount++;
+		if (/^\*\*[^*]{3,60}\*\*[:\s]*$/.test(trimmed)) boldLabelCount++;
 	}
-	if (headingCount >= 4 && plainParaCount >= 4) score += 2;
+	if (boldLabelCount >= 3) score++;
 
-	// Pattern 2: Bold-only lines (ChatGPT uses **Topic** as pseudo-headings)
-	let boldLineCount = 0;
-	for (const line of lines) {
-		if (/^\s*\*\*[^*]{3,60}\*\*\s*$/.test(line)) boldLineCount++;
-	}
-	if (boldLineCount >= 3) score++;
-
-	// Pattern 3: Numbered recommendation lists (1. **Item** -- ...)
+	// Pattern 3: Numbered items with bold (1. **Item** -- ...)
 	let numberedBoldCount = 0;
 	for (const line of lines) {
 		if (/^\d+\.\s+\*\*/.test(line.trim())) numberedBoldCount++;
@@ -123,18 +129,12 @@ export function isLikelyChatGPTPaste(input: string): boolean {
 	const disclaimerPattern = /\b(as an AI|as of my (knowledge|last) (cutoff|update|training)|I('m| am) an AI|not (a )?(licensed|certified|qualified)|I can't provide (medical|legal|financial))\b/i;
 	if (disclaimerPattern.test(input)) score++;
 
-	// Pattern 5: Question-answer rhythm -- short sections (<50 words) followed
-	// by long sections (>100 words), split by headings or double newlines
-	const sections = masked.split(/\n#{2,3}\s+|\n{3,}/);
-	let shortThenLong = 0;
-	for (let i = 0; i < sections.length - 1; i++) {
-		const curWords = sections[i].trim().split(/\s+/).length;
-		const nextWords = sections[i + 1].trim().split(/\s+/).length;
-		if (curWords < 50 && nextWords > 100) shortThenLong++;
-	}
-	if (shortThenLong >= 3) score++;
+	// Pattern 5: Large document with heading structure -- ChatGPT conversations
+	// produce long, multi-topic output. A short doc with headings is just markdown.
+	const totalWords = masked.split(/\s+/).length;
+	if (totalWords >= 800 && headingCount >= 4) score++;
 
-	// Require at least 3 pattern matches to avoid false positives
+	// Require at least 3 to trigger
 	return score >= 3;
 }
 
@@ -145,6 +145,16 @@ function isClaudeWebPaste(input: string): boolean {
 
 	const { masked } = maskCodeBlocks(input);
 	const lines = masked.split('\n');
+
+	// Guard: if the content has many headings, it's likely a ChatGPT paste
+	// or a markdown document, not a Claude web conversation (which uses
+	// date stamps, not headings, to delimit turns)
+	let headingCount = 0;
+	for (const line of lines) {
+		if (/^#{1,4}\s+/.test(line.trim())) headingCount++;
+	}
+	if (headingCount >= 5) return false;
+
 	const datePattern =
 		/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}$/;
 	let dateCount = 0;
