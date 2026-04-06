@@ -22,5 +22,5 @@
 - [x] A8 - Clean up `tsconfig.json`
 
 ## Phase 4: Polish + Submission
-- [ ] A9 - CHANGELOG.md
+- [x] A9 - CHANGELOG.md
 - [ ] A10 - GitHub release + submission (requires Ryan approval)

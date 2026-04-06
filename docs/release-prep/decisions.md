@@ -48,4 +48,6 @@
 
 ## Phase 4
 
-_(To be filled during Phase 4)_
+### D11: CHANGELOG format
+- **Decision:** Keep-a-Changelog style with features listed under 0.1.0.
+- **Rationale:** Standard format recognized by Obsidian community. Lists all major features for initial release.
