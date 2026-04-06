@@ -209,13 +209,15 @@ function tryAssistantHeadingTitle(messages: Message[]): string | null {
 }
 
 function cleanHeadingText(text: string): string {
-	return text
+	let cleaned = text
 		.replace(/\*\*([^*]+)\*\*/g, '$1')
 		.replace(/\*([^*]+)\*/g, '$1')
 		.replace(/`([^`]+)`/g, '$1')
 		.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
 		.replace(/^(\d+\.\s*|step\s+\d+[:.]\s*|part\s+[a-z0-9]+[:.]\s*)/i, '')
 		.trim();
+	cleaned = stripLeadingArtifacts(cleaned);
+	return cleaned;
 }
 
 // --- Strategy 3 (after entity): Assistant Opening Title (gated) ---
@@ -343,6 +345,7 @@ export function stripFillerAndActions(text: string): string {
 
 function cleanComparisonSide(text: string): string {
 	let cleaned = text.trim();
+	cleaned = stripLeadingArtifacts(cleaned);
 	// Strip leading filler/question patterns
 	cleaned = cleaned.replace(/^(what\s+about\s+(the\s+)?|how\s+about\s+(the\s+)?|tell\s+me\s+about\s+)/i, '').trim();
 	// Remove trailing punctuation and filler
@@ -652,6 +655,9 @@ function tryCleanedSentence(messages: Message[]): string | null {
 	// Strip contextual references
 	sentence = sentence.replace(CONTEXTUAL_REFS, '').trim();
 
+	// Normalize unicode and strip leading punctuation artifacts
+	sentence = stripLeadingArtifacts(sentence);
+
 	if (sentence.length === 0) return null;
 
 	const titled = toTitleCase(sentence);
@@ -736,21 +742,49 @@ function truncateAtWord(text: string, maxLength: number): string {
 	if (text.length <= maxLength) return text;
 	const truncated = text.slice(0, maxLength);
 
+	let result: string;
+
 	const phraseBoundary = truncated.match(/^(.+)[,;:](?:\s|$)/);
 	if (phraseBoundary && phraseBoundary[1].length > maxLength * 0.4) {
-		return phraseBoundary[1].trim();
+		result = phraseBoundary[1].trim();
+	} else {
+		const conjunctionBreak = truncated.match(/^(.+)\s+(?:and|or|but)\s+/i);
+		if (conjunctionBreak && conjunctionBreak[1].length > maxLength * 0.4) {
+			result = conjunctionBreak[1].trim();
+		} else {
+			const lastSpace = truncated.lastIndexOf(' ');
+			result = lastSpace > maxLength * 0.5
+				? truncated.slice(0, lastSpace)
+				: truncated;
+		}
 	}
 
-	const conjunctionBreak = truncated.match(/^(.+)\s+(?:and|or|but)\s+/i);
-	if (conjunctionBreak && conjunctionBreak[1].length > maxLength * 0.4) {
-		return conjunctionBreak[1].trim();
+	// Post-truncation cleanup: strip unbalanced parentheses/brackets
+	result = cleanUnbalancedBrackets(result);
+
+	return result;
+}
+
+function cleanUnbalancedBrackets(text: string): string {
+	let result = text;
+
+	// Strip trailing fragment after unbalanced opening bracket
+	if ((result.match(/\(/g) || []).length > (result.match(/\)/g) || []).length) {
+		result = result.replace(/\s*\([^)]*$/, '').trim();
+	}
+	if ((result.match(/\[/g) || []).length > (result.match(/\]/g) || []).length) {
+		result = result.replace(/\s*\[[^\]]*$/, '').trim();
 	}
 
-	const lastSpace = truncated.lastIndexOf(' ');
-	if (lastSpace > maxLength * 0.5) {
-		return truncated.slice(0, lastSpace);
+	// Strip dangling closing bracket with no opener
+	if ((result.match(/\)/g) || []).length > (result.match(/\(/g) || []).length) {
+		result = result.replace(/^[^(]*\)\s*/, '').trim();
 	}
-	return truncated;
+	if ((result.match(/\]/g) || []).length > (result.match(/\[/g) || []).length) {
+		result = result.replace(/^[^[]*\]\s*/, '').trim();
+	}
+
+	return result;
 }
 
 const MINOR_WORDS = new Set([

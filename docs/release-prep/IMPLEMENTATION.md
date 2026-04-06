@@ -7,10 +7,10 @@
 - [x] A3 - Add `authorUrl` to `manifest.json`
 
 ## Phase 2: Critical Output Quality
-- [ ] B1 - Fix tag differentiation (per-segment instead of conversation-wide)
-- [ ] B2 - Fix segmentation fallback (prevent 1-segment output for long chats)
-- [ ] B3 - Fix title artifacts (em-dashes, punctuation prefixes)
-- [ ] B4 - Fix title truncation (unbalanced parentheses)
+- [x] B1 - Fix tag differentiation (per-segment instead of conversation-wide)
+- [x] B2 - Fix segmentation fallback (prevent 1-segment output for long chats)
+- [x] B3 - Fix title artifacts (em-dashes, punctuation prefixes)
+- [x] B4 - Fix title truncation (unbalanced parentheses)
 
 ## Phase 3: Callout Quality + Infrastructure
 - [ ] B5 - Questions Asked filter (only actual questions)

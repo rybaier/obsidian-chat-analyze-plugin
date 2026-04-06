@@ -63,8 +63,30 @@ export function segment(
 		}
 	}
 
+	// Fallback: if no boundaries pass the confidence threshold but the
+	// conversation is 3x+ longer than minMessages, force-pick the N
+	// highest-scoring boundaries to avoid producing a single giant segment.
 	if (acceptedIndices.length === 0) {
-		return [buildSegment(messages, 0, messages.length - 1, 1.0, tagPrefix)];
+		const isLongConversation = messages.length >= config.thresholds.minMessages * 3;
+		if (isLongConversation && boundaries.length > 0) {
+			const targetSegments = Math.max(2, Math.floor(messages.length / config.thresholds.minMessages));
+			const maxBoundaries = targetSegments - 1;
+			const topBoundaries = [...boundaries]
+				.sort((a, b) => b.score - a.score)
+				.slice(0, maxBoundaries);
+
+			for (const boundary of topBoundaries) {
+				const testIndices = [...acceptedIndices, boundary.beforeIndex].sort((a, b) => a - b);
+				if (allSegmentsMeetMinimum(messages, testIndices, config)) {
+					acceptedIndices.push(boundary.beforeIndex);
+					acceptedIndices.sort((a, b) => a - b);
+				}
+			}
+		}
+
+		if (acceptedIndices.length === 0) {
+			return [buildSegment(messages, 0, messages.length - 1, 1.0, tagPrefix)];
+		}
 	}
 
 	const segments: Segment[] = [];
@@ -84,21 +106,21 @@ export function segment(
 	const lastConfidence = boundaryMap.get(segStart) || 1.0;
 	segments.push(buildSegment(lastMessages, segStart, messages.length - 1, lastConfidence, tagPrefix));
 
-	// For documents, generate domain tags from the full text (enough keyword
-	// density), but preserve per-segment entity sub-tags for differentiation
+	// For documents, generate per-segment tags so each segment gets
+	// differentiated keywords instead of identical conversation-wide tags.
+	// Merge with per-segment entity sub-tags for further differentiation.
 	if (conversation.contentType === 'document') {
-		const documentTags = generateTags(messages, tagPrefix);
 		const normalizedPrefix = tagPrefix.replace(/\/+$/, '');
 		for (const seg of segments) {
+			const segTags = generateTags(seg.messages, tagPrefix);
 			const segEntityTag = entitySubTag(seg.messages);
 			if (segEntityTag) {
 				const fullEntityTag = `${normalizedPrefix}/${segEntityTag}`;
-				// Merge: document-wide domain tags + per-segment entity tag
-				const merged = new Set(documentTags);
+				const merged = new Set(segTags);
 				merged.add(fullEntityTag);
 				seg.tags = [...merged].slice(0, 5);
 			} else {
-				seg.tags = documentTags;
+				seg.tags = segTags;
 			}
 		}
 	}
