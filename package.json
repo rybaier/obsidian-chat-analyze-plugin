@@ -7,15 +7,32 @@
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
 	},
-	"keywords": [],
+	"keywords": [
+		"obsidian",
+		"obsidian-plugin",
+		"chat",
+		"ai",
+		"chatgpt",
+		"claude",
+		"splitter",
+		"notes"
+	],
 	"author": "Ryan Baier",
 	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/rybaier/obsidian-chat-splitter.git"
+	},
+	"homepage": "https://github.com/rybaier/obsidian-chat-splitter",
+	"bugs": {
+		"url": "https://github.com/rybaier/obsidian-chat-splitter/issues"
+	},
 	"devDependencies": {
-		"@types/node": "^16.11.6",
-		"esbuild": "0.17.3",
+		"@types/node": "^22.0.0",
+		"esbuild": "0.24.2",
 		"obsidian": "latest",
 		"tslib": "2.4.0",
-		"typescript": "4.7.4"
+		"typescript": "5.9.3"
 	},
 	"dependencies": {
 		"jszip": "^3.10.1"
