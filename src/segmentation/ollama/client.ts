@@ -40,7 +40,9 @@ export class OllamaClient {
 	}
 
 	async generate(prompt: string, model: string): Promise<string> {
-		const response = await requestUrl({
+		const TIMEOUT_MS = 120_000;
+
+		const request = requestUrl({
 			url: `${this.endpoint}/api/generate`,
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
@@ -51,6 +53,12 @@ export class OllamaClient {
 			}),
 			throw: false,
 		});
+
+		const timeout = new Promise<never>((_, reject) => {
+			setTimeout(() => reject(new Error(`Ollama request timed out after ${TIMEOUT_MS / 1000}s`)), TIMEOUT_MS);
+		});
+
+		const response = await Promise.race([request, timeout]);
 
 		if (response.status !== 200) {
 			throw new Error(`Ollama returned status ${response.status}`);

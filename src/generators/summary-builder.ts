@@ -66,6 +66,28 @@ function truncateItem(text: string): string {
 	return text.slice(0, MAX_ITEM_LENGTH) + '...';
 }
 
+const QUESTION_WORD_PATTERN = /^(what|where|when|which|who|whom|whose|why|how|is|are|was|were|do|does|did|can|could|would|should|will|shall|has|have|had)\b/i;
+const REQUEST_PATTERN = /^(tell me|show me|explain|describe|help me|give me|list|compare|break down|walk me through)\b/i;
+const CONVERSATIONAL_ACK_PATTERN = /^(got it|great|thanks|thank you|ok|okay|sure|perfect|awesome|right|yeah|yes|no|alright|hmm|ah|oh|well|so|cool|nice|interesting|understood|noted)\b/i;
+
+function isLikelyQuestion(text: string): boolean {
+	// Ends with question mark
+	if (/\?\s*$/.test(text)) return true;
+	// Starts with question word
+	if (QUESTION_WORD_PATTERN.test(text)) return true;
+	// Request phrasing
+	if (REQUEST_PATTERN.test(text)) return true;
+	return false;
+}
+
+function isConversationalFragment(text: string): boolean {
+	// Starts with conversational acknowledgment
+	if (CONVERSATIONAL_ACK_PATTERN.test(text)) return true;
+	// Too short to be a meaningful topic (under 20 chars)
+	if (text.length < 20) return true;
+	return false;
+}
+
 export function extractQuestions(messages: Message[]): string[] {
 	const userMessages = messages.filter(m => m.role === 'user');
 	const questions: string[] = [];
@@ -107,6 +129,9 @@ export function extractQuestions(messages: Message[]): string[] {
 		const cleaned = cleanMarkdownInline(sentence);
 		if (cleaned.length < 5) continue;
 
+		// B5: Only include actual questions, not statements
+		if (!isLikelyQuestion(cleaned)) continue;
+
 		const truncated = truncateItem(cleaned);
 		if (!isDuplicate(truncated, questions)) {
 			questions.push(truncated);
@@ -138,6 +163,8 @@ export function extractTopics(messages: Message[]): string[] {
 			text = text.replace(/^(\d+\.\s*|step\s+\d+[:.]\s*|part\s+[a-z0-9]+[:.]\s*)/i, '').trim();
 
 			if (text.length < 3) continue;
+			// B6: Reject short fragments and conversational noise
+			if (text.length < 20 && isConversationalFragment(text)) continue;
 
 			const truncated = truncateItem(text);
 			if (!isDuplicate(truncated, topics)) {
@@ -180,6 +207,9 @@ export function extractTopics(messages: Message[]): string[] {
 			// Filter out conversational sentences (not useful as topic labels)
 			if (/\b(you|your|you're|you'll|we|we're|i'm|i'll|i've)\b/i.test(sentence)) continue;
 
+			// B6: Filter conversational acknowledgments and fragments
+			if (isConversationalFragment(sentence)) continue;
+
 			if (sentence.length < 10) continue;
 
 			// Cap topic length at 80 chars with word-boundary truncation
@@ -211,11 +241,22 @@ export function extractTakeaways(messages: Message[]): string[] {
 		for (const sentence of sentences) {
 			if (sentence.length < 15) continue;
 
-			const matchesPattern = TAKEAWAY_PATTERNS.some(p => p.test(sentence));
+			// B7: Only match takeaway patterns in the first 60 chars
+			// to avoid false positives from incidental word use deep in a sentence
+			const prefix = sentence.slice(0, 60);
+			const matchesPattern = TAKEAWAY_PATTERNS.some(p => p.test(prefix));
 			if (!matchesPattern) continue;
 
 			// Filter out user-directed prompts
 			if (/\b(if you tell me|let me know|you can also|feel free to)\b/i.test(sentence)) continue;
+
+			// B7: Filter conversational filler
+			if (CONVERSATIONAL_ACK_PATTERN.test(sentence)) continue;
+
+			// B7: Minimum informativeness -- must contain at least one
+			// noun-like word (4+ chars, not all common verbs/adverbs)
+			const words = sentence.split(/\s+/).filter(w => w.length >= 4);
+			if (words.length < 3) continue;
 
 			let cleaned = cleanMarkdownInline(sentence).trim();
 			// Strip leading list markers that survived

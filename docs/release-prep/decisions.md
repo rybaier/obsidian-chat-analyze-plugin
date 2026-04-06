@@ -26,7 +26,25 @@
 
 ## Phase 3
 
-_(To be filled during Phase 3)_
+### D6: Question filtering strategy
+- **Decision:** Add `isLikelyQuestion()` gate requiring `?` ending, question-word start, or request phrasing. Non-questions are excluded from the Questions Asked callout.
+- **Rationale:** Statements like "Government fees (couple):" were appearing as questions. Explicit question detection prevents this.
+
+### D7: Topic fragment filtering
+- **Decision:** Add `isConversationalFragment()` filter rejecting entries starting with acknowledgments (got it, great, thanks, etc.) and entries under 20 chars. Applied to both heading-extracted and fallback topics.
+- **Rationale:** Conversational fragments like "Got it -- couple (2 adults)" are not meaningful topics.
+
+### D8: Takeaway quality gates
+- **Decision:** Restrict TAKEAWAY_PATTERNS matching to first 60 chars of sentence, filter conversational filler, require at least 3 words of 4+ chars.
+- **Rationale:** Broad patterns like `\boverall\b` matched random sentences when the keyword appeared deep in long sentences. The prefix restriction + informativeness check reduces false positives.
+
+### D9: Ollama timeout
+- **Decision:** Wrap `requestUrl()` in `Promise.race` with 120s timeout.
+- **Rationale:** Ollama requests can hang indefinitely on slow models or network issues. 120s is generous enough for large prompts.
+
+### D10: tsconfig cleanup
+- **Decision:** Remove `inlineSourceMap` and `inlineSources` from tsconfig.json.
+- **Rationale:** These settings have no effect when `noEmit: true` since TypeScript produces no output files.
 
 ## Phase 4
 

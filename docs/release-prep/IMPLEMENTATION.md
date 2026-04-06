@@ -13,13 +13,13 @@
 - [x] B4 - Fix title truncation (unbalanced parentheses)
 
 ## Phase 3: Callout Quality + Infrastructure
-- [ ] B5 - Questions Asked filter (only actual questions)
-- [ ] B6 - Topics Covered filter (no conversational fragments)
-- [ ] B7 - Key Takeaways filter (meaningful insights only)
-- [ ] A5 - GitHub Actions release workflow
-- [ ] A6 - Ollama timeout
-- [ ] A7 - Clean up `.gitignore`
-- [ ] A8 - Clean up `tsconfig.json`
+- [x] B5 - Questions Asked filter (only actual questions)
+- [x] B6 - Topics Covered filter (no conversational fragments)
+- [x] B7 - Key Takeaways filter (meaningful insights only)
+- [x] A5 - GitHub Actions release workflow
+- [x] A6 - Ollama timeout
+- [x] A7 - Clean up `.gitignore`
+- [x] A8 - Clean up `tsconfig.json`
 
 ## Phase 4: Polish + Submission
 - [ ] A9 - CHANGELOG.md
