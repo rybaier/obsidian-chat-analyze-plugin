@@ -3,6 +3,7 @@ import { scoreBoundaries } from './scorer';
 import { generateTitle } from './title-generator';
 import { generateTags, entitySubTag } from './tag-generator';
 import { segmentWithOllama } from './ollama/ollama-segmenter';
+import { debugLog } from '../utils/debug-log';
 
 function generateId(): string {
 	return crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2, 10);
@@ -208,8 +209,8 @@ export async function segmentWithFallback(
 			);
 			return { segments, usedFallback: false };
 		} catch (err) {
-			console.log(
-				`[Chat Splitter] Ollama segmentation failed, falling back to heuristic: ${err instanceof Error ? err.message : String(err)}`
+			debugLog(
+				`Ollama segmentation failed, falling back to heuristic: ${err instanceof Error ? err.message : String(err)}`
 			);
 		}
 	}
