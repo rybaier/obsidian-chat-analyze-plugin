@@ -51,3 +51,7 @@
 ### D11: CHANGELOG format
 - **Decision:** Keep-a-Changelog style with features listed under 0.1.0.
 - **Rationale:** Standard format recognized by Obsidian community. Lists all major features for initial release.
+
+### D12: Extend segmentation fallback to under-segmented conversations
+- **Decision:** Change fallback trigger from `acceptedIndices.length === 0` to also fire when `(acceptedIndices.length + 1) < expectedSegments / 2`. The fallback then adds below-threshold boundaries that weren't already accepted.
+- **Rationale:** caribbean5 test showed 3 segments from 28 messages (target ~9). Two boundaries passed the 0.40 threshold, so the original fallback (which only fired at zero) never triggered. The new condition detects when segmentation is less than half of expected and supplements with the highest-scoring remaining boundaries.

@@ -64,19 +64,26 @@ export function segment(
 		}
 	}
 
-	// Fallback: if no boundaries pass the confidence threshold but the
-	// conversation is 3x+ longer than minMessages, force-pick the N
-	// highest-scoring boundaries to avoid producing a single giant segment.
-	if (acceptedIndices.length === 0) {
-		const isLongConversation = messages.length >= config.thresholds.minMessages * 3;
-		if (isLongConversation && boundaries.length > 0) {
-			const targetSegments = Math.max(2, Math.floor(messages.length / config.thresholds.minMessages));
-			const maxBoundaries = targetSegments - 1;
-			const topBoundaries = [...boundaries]
-				.sort((a, b) => b.score - a.score)
-				.slice(0, maxBoundaries);
+	// Fallback: boost segmentation when the conversation is long but
+	// under-segmented. Fires when either (a) no boundaries passed the
+	// confidence threshold, or (b) the accepted count is less than half
+	// of what we'd expect given conversation length and minMessages.
+	const expectedSegments = Math.max(2, Math.floor(messages.length / config.thresholds.minMessages));
+	const isLongConversation = messages.length >= config.thresholds.minMessages * 3;
+	const isUnderSegmented = isLongConversation
+		&& (acceptedIndices.length + 1) < expectedSegments / 2;
 
-			for (const boundary of topBoundaries) {
+	if ((acceptedIndices.length === 0 || isUnderSegmented) && boundaries.length > 0) {
+		if (isLongConversation) {
+			const maxBoundaries = expectedSegments - 1;
+			// Gather below-threshold boundaries not yet accepted
+			const alreadyAccepted = new Set(acceptedIndices);
+			const remainingBoundaries = [...boundaries]
+				.filter(b => !alreadyAccepted.has(b.beforeIndex))
+				.sort((a, b) => b.score - a.score)
+				.slice(0, maxBoundaries - acceptedIndices.length);
+
+			for (const boundary of remainingBoundaries) {
 				const testIndices = [...acceptedIndices, boundary.beforeIndex].sort((a, b) => a - b);
 				if (allSegmentsMeetMinimum(messages, testIndices, config)) {
 					acceptedIndices.push(boundary.beforeIndex);
