@@ -68,7 +68,7 @@ function truncateItem(text: string): string {
 
 const QUESTION_WORD_PATTERN = /^(what|where|when|which|who|whom|whose|why|how|is|are|was|were|do|does|did|can|could|would|should|will|shall|has|have|had)\b/i;
 const REQUEST_PATTERN = /^(tell me|show me|explain|describe|help me|give me|list|compare|break down|walk me through)\b/i;
-const CONVERSATIONAL_ACK_PATTERN = /^(got it|great|thanks|thank you|ok|okay|sure|perfect|awesome|right|yeah|yes|no|alright|hmm|ah|oh|well|so|cool|nice|interesting|understood|noted)\b/i;
+const CONVERSATIONAL_ACK_PATTERN = /^(got it|great|thanks|thank you|ok|okay|sure|perfect|awesome|right|yeah|yep|yes|no|alright|absolutely|hmm|ah|oh|well|so|cool|nice|interesting|understood|noted)\b/i;
 
 function isLikelyQuestion(text: string): boolean {
 	// Ends with question mark
@@ -247,8 +247,11 @@ export function extractTakeaways(messages: Message[]): string[] {
 			const matchesPattern = TAKEAWAY_PATTERNS.some(p => p.test(prefix));
 			if (!matchesPattern) continue;
 
-			// Filter out user-directed prompts
-			if (/\b(if you tell me|let me know|you can also|feel free to)\b/i.test(sentence)) continue;
+			// Filter out user-directed prompts and assistant solicitations
+			if (/\b(if you tell me|if you give me|if you let me|if you share|if you send)\b/i.test(sentence)) continue;
+			if (/\b(if you want|if you'd like|if you prefer|if you need)\b/i.test(sentence)) continue;
+			if (/\b(let me know|you can also|feel free to|just tell me|just let me know)\b/i.test(sentence)) continue;
+			if (/^if you\b/i.test(sentence.trim())) continue;
 
 			// B7: Filter conversational filler
 			if (CONVERSATIONAL_ACK_PATTERN.test(sentence)) continue;
