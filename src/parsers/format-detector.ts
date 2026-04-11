@@ -31,9 +31,14 @@ function isJson(input: string): boolean {
 	return (input.startsWith('{') || input.startsWith('['));
 }
 
+interface JsonExportShape {
+	mapping?: Record<string, unknown>;
+	chat_messages?: unknown[];
+}
+
 function detectJsonFormat(input: string): InputFormat {
 	try {
-		const parsed = JSON.parse(input);
+		const parsed = JSON.parse(input) as JsonExportShape | JsonExportShape[];
 
 		if (Array.isArray(parsed)) {
 			if (parsed.length > 0 && parsed[0].mapping) {
@@ -44,11 +49,11 @@ function detectJsonFormat(input: string): InputFormat {
 			}
 		}
 
-		if (parsed.mapping && typeof parsed.mapping === 'object') {
+		if (!Array.isArray(parsed) && parsed.mapping && typeof parsed.mapping === 'object') {
 			return { source: 'chatgpt', method: 'file-json' };
 		}
 
-		if (parsed.chat_messages && Array.isArray(parsed.chat_messages)) {
+		if (!Array.isArray(parsed) && parsed.chat_messages && Array.isArray(parsed.chat_messages)) {
 			return { source: 'claude', method: 'file-json' };
 		}
 	} catch {

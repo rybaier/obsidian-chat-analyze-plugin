@@ -76,7 +76,7 @@ export class ImportModal extends Modal {
 		this.step = 1;
 
 		const header = this.contentEl.createDiv('chat-splitter-step-header');
-		header.createEl('h2', { text: 'Import Chat - Step 1: Input' });
+		header.createEl('h2', { text: 'Import chat - step 1: input' });
 
 		const tabContainer = this.contentEl.createDiv('chat-splitter-tabs');
 		const pasteTab = tabContainer.createEl('button', { text: 'Paste' });
@@ -126,7 +126,7 @@ export class ImportModal extends Modal {
 			.setDesc('Override auto-detection if the format is wrong')
 			.addDropdown(drop => {
 				drop.addOption('auto', 'Auto');
-				drop.addOption('chatgpt', 'ChatGPT');
+				drop.addOption('chatgpt', 'Chatgpt');
 				drop.addOption('claude', 'Claude');
 				drop.addOption('document', 'Document');
 				drop.setValue(this.sourceOverride);
@@ -141,10 +141,10 @@ export class ImportModal extends Modal {
 			cls: 'mod-cta',
 		});
 		analyzeBtn.disabled = !this.rawInput;
-		analyzeBtn.addEventListener('click', () => this.handleAnalyze());
+		analyzeBtn.addEventListener('click', () => { this.handleAnalyze(); });
 
 		const errorEl = this.contentEl.createDiv('chat-splitter-error');
-		errorEl.style.display = 'none';
+		errorEl.addClass('chat-splitter-hidden');
 	}
 
 	private renderPasteInput(badge: HTMLElement): void {
@@ -171,12 +171,12 @@ export class ImportModal extends Modal {
 			attr: { type: 'file', accept: '.json,.zip,.md', style: 'display: none' },
 		});
 
-		const chooseBtn = fileContainer.createEl('button', { text: 'Choose File' });
+		const chooseBtn = fileContainer.createEl('button', { text: 'Choose file' });
 		const fileLabel = fileContainer.createSpan({ text: 'No file selected' });
 
 		chooseBtn.addEventListener('click', () => fileInput.click());
 
-		fileInput.addEventListener('change', async () => {
+		fileInput.addEventListener('change', () => { void (async () => {
 			const file = fileInput.files?.[0];
 			if (!file) return;
 
@@ -198,7 +198,7 @@ export class ImportModal extends Modal {
 				fileLabel.setText('Error reading file');
 				new Notice(`File read error: ${err instanceof Error ? err.message : String(err)}`);
 			}
-		});
+		})(); });
 	}
 
 	private async extractZip(file: File): Promise<string> {
@@ -249,13 +249,12 @@ export class ImportModal extends Modal {
 
 		const container = this.contentEl.createDiv('chat-splitter-conv-selector');
 
-		const label = container.createEl('label', { text: `${this.availableConversations.length} conversations found. Select one:` });
-		label.style.display = 'block';
-		label.style.marginBottom = '4px';
-		label.style.fontSize = 'var(--font-smaller)';
+		container.createEl('label', {
+			text: `${this.availableConversations.length} conversations found. Select one:`,
+			cls: 'chat-splitter-conv-label',
+		});
 
-		const select = container.createEl('select');
-		select.style.width = '100%';
+		const select = container.createEl('select', { cls: 'chat-splitter-conv-select' });
 
 		for (const conv of this.availableConversations) {
 			const option = select.createEl('option', {
@@ -311,18 +310,18 @@ export class ImportModal extends Modal {
 		}
 	}
 
-	private async handleAnalyze(): Promise<void> {
+	private handleAnalyze(): void {
 		const errorEl = this.contentEl.querySelector('.chat-splitter-error') as HTMLElement;
 
 		try {
 			if (errorEl) {
-				errorEl.style.display = 'none';
+				errorEl.addClass('chat-splitter-hidden');
 				errorEl.setText('');
 			}
 
 			if (!this.rawInput.trim()) {
 				if (errorEl) {
-					errorEl.style.display = 'block';
+					errorEl.removeClass('chat-splitter-hidden');
 					errorEl.setText('No content to analyze');
 				}
 				return;
@@ -364,7 +363,7 @@ export class ImportModal extends Modal {
 			this.renderStep2();
 		} catch (err) {
 			if (errorEl) {
-				errorEl.style.display = 'block';
+				errorEl.removeClass('chat-splitter-hidden');
 				errorEl.setText(`Parse error: ${err instanceof Error ? err.message : String(err)}`);
 			}
 		}
@@ -413,7 +412,7 @@ export class ImportModal extends Modal {
 				drop.setValue(this.importConfig.granularity);
 				drop.onChange(value => {
 					this.importConfig.granularity = value as 'coarse' | 'medium' | 'fine';
-					this.reRunSegmentation();
+					void this.reRunSegmentation();
 				});
 			});
 
@@ -440,8 +439,8 @@ export class ImportModal extends Modal {
 
 		if (this.settings.enableOllama) {
 			new Setting(settingsContainer)
-				.setName('Use Ollama')
-				.setDesc('Use local LLM for enhanced segmentation')
+				.setName('Use ollama')
+				.setDesc('Use local llm for enhanced segmentation')
 				.addToggle(toggle => {
 					toggle.setValue(this.importConfig.useOllama);
 					toggle.onChange(value => { this.importConfig.useOllama = value; });
@@ -466,7 +465,7 @@ export class ImportModal extends Modal {
 			text: `Create ${this.segments.length + 1} Notes`,
 			cls: 'mod-cta',
 		});
-		createBtn.addEventListener('click', () => this.handleCreate());
+		createBtn.addEventListener('click', () => { void this.handleCreate(); });
 
 		if (this.settings.alwaysPreview) {
 			this.openPreview();
@@ -482,7 +481,7 @@ export class ImportModal extends Modal {
 			this.conversation,
 			(editedSegments) => {
 				this.segments = editedSegments;
-				this.handleCreate();
+				void this.handleCreate();
 			}
 		).open();
 	}
@@ -492,7 +491,7 @@ export class ImportModal extends Modal {
 
 		const config = {
 			granularity: this.importConfig.granularity,
-			method: (this.importConfig.useOllama ? 'ollama' : 'heuristic') as 'heuristic' | 'ollama',
+			method: this.importConfig.useOllama ? 'ollama' as const : 'heuristic' as const,
 			signalWeights: DEFAULT_SIGNAL_WEIGHTS,
 			thresholds: GRANULARITY_PRESETS[this.importConfig.granularity],
 		};
@@ -537,7 +536,7 @@ export class ImportModal extends Modal {
 		if (createBtn) createBtn.disabled = true;
 
 		try {
-			const existingMatch = await this.findExistingConversation(this.conversation.id);
+			const existingMatch = this.findExistingConversation(this.conversation.id);
 			if (existingMatch) {
 				const proceed = await this.promptDuplicateAction(existingMatch);
 				if (!proceed) {
@@ -608,7 +607,7 @@ export class ImportModal extends Modal {
 		}
 	}
 
-	private async findExistingConversation(conversationId: string): Promise<string | null> {
+	private findExistingConversation(conversationId: string): string | null {
 		if (!conversationId) return null;
 
 		const files = this.app.vault.getMarkdownFiles();
@@ -646,21 +645,21 @@ class DuplicateModal extends Modal {
 	}
 
 	onOpen(): void {
-		this.contentEl.createEl('h3', { text: 'Duplicate Conversation Found' });
+		this.contentEl.createEl('h3', { text: 'Duplicate conversation found' });
 		this.contentEl.createEl('p', {
 			text: `A conversation with the same ID already exists at: ${this.existingPath}`,
 		});
 
 		const btnContainer = this.contentEl.createDiv('chat-splitter-buttons');
 
-		const skipBtn = btnContainer.createEl('button', { text: 'Cancel Import' });
+		const skipBtn = btnContainer.createEl('button', { text: 'Cancel import' });
 		skipBtn.addEventListener('click', () => {
 			this.onAction('skip');
 			this.close();
 		});
 
 		const importNewBtn = btnContainer.createEl('button', {
-			text: 'Import as New',
+			text: 'Import as new',
 			cls: 'mod-cta',
 		});
 		importNewBtn.addEventListener('click', () => {

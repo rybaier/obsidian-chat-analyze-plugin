@@ -23,8 +23,6 @@ export class ChatSplitterSettingTab extends PluginSettingTab {
 	}
 
 	private renderGeneralSection(containerEl: HTMLElement): void {
-		containerEl.createEl('h3', { text: 'General' });
-
 		new Setting(containerEl)
 			.setName('Default folder')
 			.setDesc('Default folder for imported conversations')
@@ -74,7 +72,7 @@ export class ChatSplitterSettingTab extends PluginSettingTab {
 	}
 
 	private renderSegmentationSection(containerEl: HTMLElement): void {
-		containerEl.createEl('h3', { text: 'Segmentation' });
+		new Setting(containerEl).setName('Segmentation').setHeading();
 
 		new Setting(containerEl)
 			.setName('Default granularity')
@@ -131,7 +129,7 @@ export class ChatSplitterSettingTab extends PluginSettingTab {
 	}
 
 	private renderFormattingSection(containerEl: HTMLElement): void {
-		containerEl.createEl('h3', { text: 'Formatting' });
+		new Setting(containerEl).setName('Formatting').setHeading();
 
 		new Setting(containerEl)
 			.setName('Speaker style')
@@ -200,11 +198,11 @@ export class ChatSplitterSettingTab extends PluginSettingTab {
 	}
 
 	private renderAISection(containerEl: HTMLElement): void {
-		containerEl.createEl('h3', { text: 'AI Enhancement' });
+		new Setting(containerEl).setName('AI enhancement').setHeading();
 
 		new Setting(containerEl)
-			.setName('Enable Ollama')
-			.setDesc('Use local Ollama for enhanced segmentation')
+			.setName('Enable ollama')
+			.setDesc('Use local ollama for enhanced segmentation')
 			.addToggle(toggle => {
 				toggle.setValue(this.plugin.settings.enableOllama);
 				toggle.onChange(async (value) => {
@@ -217,7 +215,7 @@ export class ChatSplitterSettingTab extends PluginSettingTab {
 		if (this.plugin.settings.enableOllama) {
 			new Setting(containerEl)
 				.setName('Ollama endpoint')
-				.setDesc('URL of the Ollama API')
+				.setDesc('URL of the ollama API')
 				.addText(text => {
 					text.setValue(this.plugin.settings.ollamaEndpoint);
 					text.onChange(async (value) => {
@@ -239,7 +237,7 @@ export class ChatSplitterSettingTab extends PluginSettingTab {
 
 			new Setting(containerEl)
 				.setName('Test connection')
-				.setDesc('Verify Ollama is reachable')
+				.setDesc('Verify ollama is reachable')
 				.addButton(button => {
 					button.setButtonText('Test');
 					button.onClick(async () => {
@@ -256,7 +254,7 @@ export class ChatSplitterSettingTab extends PluginSettingTab {
 								new Notice(`Ollama returned status ${response.status}`);
 							}
 						} catch {
-							new Notice('Failed to connect to Ollama');
+							new Notice('Failed to connect to ollama');
 						}
 					});
 				});
@@ -264,7 +262,7 @@ export class ChatSplitterSettingTab extends PluginSettingTab {
 	}
 
 	private renderAdvancedSection(containerEl: HTMLElement): void {
-		containerEl.createEl('h3', { text: 'Advanced' });
+		new Setting(containerEl).setName('Advanced').setHeading();
 
 		new Setting(containerEl)
 			.setName('Custom frontmatter')

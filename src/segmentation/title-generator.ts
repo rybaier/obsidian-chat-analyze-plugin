@@ -328,14 +328,14 @@ export function stripFillerAndActions(text: string): string {
 		for (const pattern of FILLER_PREFIXES) {
 			const stripped = sentence.replace(pattern, '');
 			if (stripped !== sentence) {
-				sentence = stripped.trim().replace(/^[,;:.!?\-]+\s*/, '');
+				sentence = stripped.trim().replace(/^[,;:.!?-]+\s*/, '');
 				changed = true;
 			}
 		}
 		for (const pattern of ACTION_VERB_PATTERNS) {
 			const stripped = sentence.replace(pattern, '');
 			if (stripped !== sentence) {
-				sentence = stripped.trim().replace(/^[,;:.!?\-]+\s*/, '');
+				sentence = stripped.trim().replace(/^[,;:.!?-]+\s*/, '');
 				changed = true;
 			}
 		}
@@ -434,10 +434,6 @@ function tryEntityTitle(messages: Message[]): string | null {
 
 	if (title.length <= MAX_TITLE_LENGTH) return title;
 	return truncateAtWord(title, MAX_TITLE_LENGTH);
-}
-
-function escapeRegex(str: string): string {
-	return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**
@@ -596,7 +592,7 @@ function extractTopicKernel(text: string): string {
 		sentence = sentence.replace(/,?\s*one\s+for\s+(each|every)\s*/gi, ' ').trim();
 
 		// Clean up leftover leading punctuation
-		sentence = sentence.replace(/^[,;:.!?\-]+\s*/, '').trim();
+		sentence = sentence.replace(/^[,;:.!?-]+\s*/, '').trim();
 
 		if (sentence !== prev) changed = true;
 	}
@@ -632,7 +628,7 @@ function tryCleanedSentence(messages: Message[]): string | null {
 			const stripped = sentence.replace(pattern, '');
 			if (stripped !== sentence) {
 				sentence = stripped.trim();
-				sentence = sentence.replace(/^[,;:.!?\-]+\s*/, '');
+				sentence = sentence.replace(/^[,;:.!?-]+\s*/, '');
 				changed = true;
 			}
 		}
@@ -646,7 +642,7 @@ function tryCleanedSentence(messages: Message[]): string | null {
 			const stripped = sentence.replace(pattern, '');
 			if (stripped !== sentence) {
 				sentence = stripped.trim();
-				sentence = sentence.replace(/^[,;:.!?\-]+\s*/, '');
+				sentence = sentence.replace(/^[,;:.!?-]+\s*/, '');
 				changed = true;
 			}
 		}

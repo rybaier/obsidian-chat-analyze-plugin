@@ -32,7 +32,7 @@ function isUserLikeParagraph(paragraph: string): boolean {
 	// Reject headings
 	if (/^#{1,6}\s/.test(trimmed)) return false;
 	// Reject list markers
-	if (/^[\-*+]\s/.test(trimmed)) return false;
+	if (/^[-*+]\s/.test(trimmed)) return false;
 	// Reject numbered lists
 	if (/^\d+\.\s/.test(trimmed)) return false;
 	// Reject bold text
@@ -40,7 +40,7 @@ function isUserLikeParagraph(paragraph: string): boolean {
 	// Reject unicode em/en dashes (common in assistant formatted text, rare in user input)
 	if (/[\u2014\u2013]/.test(trimmed)) return false;
 	// Reject ellipsis start (assistant continuation "...I'll")
-	if (/^[\u2026\.\.\.]/.test(trimmed)) return false;
+	if (/^[\u2026.]/.test(trimmed)) return false;
 	// Reject assistant-style continuation language
 	for (const pattern of ASSISTANT_CONTINUATION_PATTERNS) {
 		if (pattern.test(trimmed)) return false;

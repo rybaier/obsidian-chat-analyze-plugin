@@ -28,7 +28,7 @@ export default class ChatSplitterPlugin extends Plugin {
 			},
 		});
 
-		this.addRibbonIcon('scissors', 'Chat Splitter: Import', () => {
+		this.addRibbonIcon('scissors', 'Chat splitter: import', () => {
 			new ImportModal(this.app, this.settings, () => this.saveSettings(), 'paste').open();
 		});
 
@@ -40,7 +40,7 @@ export default class ChatSplitterPlugin extends Plugin {
 	}
 
 	async loadSettings(): Promise<void> {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<ChatSplitterSettings>);
 		setDebugLogging(this.settings.debugLogging);
 	}
 

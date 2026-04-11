@@ -3,8 +3,6 @@ import {
 	stripMarkdown,
 	extractFirstSentence,
 	FILLER_PREFIXES,
-	ACTION_VERB_PATTERNS,
-	stripFillerAndActions,
 	stripLeadingArtifacts,
 } from '../segmentation/title-generator';
 import { extractLinks } from './key-info-extractor';
@@ -107,7 +105,7 @@ export function extractQuestions(messages: Message[]): string[] {
 			for (const pattern of FILLER_PREFIXES) {
 				const stripped = sentence.replace(pattern, '');
 				if (stripped !== sentence) {
-					sentence = stripped.trim().replace(/^[,;:.!?\-]+\s*/, '');
+					sentence = stripped.trim().replace(/^[,;:.!?-]+\s*/, '');
 					changed = true;
 				}
 			}
@@ -122,7 +120,7 @@ export function extractQuestions(messages: Message[]): string[] {
 		}
 
 		sentence = stripLeadingArtifacts(sentence);
-		sentence = sentence.replace(/^[,;:.!?\-]+\s*/, '').trim();
+		sentence = sentence.replace(/^[,;:.!?-]+\s*/, '').trim();
 
 		if (sentence.length < 5) continue;
 

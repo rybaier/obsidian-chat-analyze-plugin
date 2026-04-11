@@ -24,7 +24,7 @@ function isUserLikeParagraph(paragraph: string): boolean {
 	if (paragraph.length > MAX_USER_PARAGRAPH_LENGTH) return false;
 	if (/^```|^~~~/.test(paragraph)) return false;
 	if (/^#{1,6}\s/.test(paragraph)) return false;
-	if (/^[\-*+]\s/.test(paragraph)) return false;
+	if (/^[-*+]\s/.test(paragraph)) return false;
 	if (/^\d+\.\s/.test(paragraph)) return false;
 	if (/\*\*[^*]+\*\*/.test(paragraph)) return false;
 	return true;

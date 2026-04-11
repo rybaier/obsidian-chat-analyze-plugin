@@ -161,9 +161,24 @@
 	outline-offset: 2px;
 }
 
+/* Hidden utility */
+.chat-splitter-hidden {
+	display: none;
+}
+
 /* Conversation selector */
 .chat-splitter-conv-selector {
 	margin: 8px 0;
+}
+
+.chat-splitter-conv-label {
+	display: block;
+	margin-bottom: 4px;
+	font-size: var(--font-smaller);
+}
+
+.chat-splitter-conv-select {
+	width: 100%;
 }
 
 .chat-splitter-conv-selector select {

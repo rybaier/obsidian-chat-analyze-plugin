@@ -1,6 +1,45 @@
 import type { ParsedConversation, Message, ContentBlock } from '../types';
 import type { IChatParser, InputFormat, ParseOptions } from './parser-interface';
 
+interface ChatGPTMessageContent {
+	content_type?: string;
+	parts?: (string | ChatGPTImagePart)[];
+	text?: string;
+}
+
+interface ChatGPTImagePart {
+	content_type?: string;
+	asset_pointer?: string;
+	metadata?: {
+		dalle?: {
+			prompt?: string;
+		};
+	};
+}
+
+interface ChatGPTMessage {
+	author?: { role?: string };
+	content?: ChatGPTMessageContent;
+	create_time?: number;
+	metadata?: { model_slug?: string };
+}
+
+interface ChatGPTNode {
+	id?: string;
+	message?: ChatGPTMessage;
+	parent?: string;
+}
+
+interface ChatGPTConversation {
+	id?: string;
+	title?: string;
+	mapping?: Record<string, ChatGPTNode>;
+	current_node?: string;
+	create_time?: number;
+	update_time?: number;
+	default_model_slug?: string;
+}
+
 function generateId(): string {
 	return crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2, 10);
 }
@@ -12,7 +51,7 @@ interface ConversationSummary {
 }
 
 export function listConversations(json: string): ConversationSummary[] {
-	const parsed = JSON.parse(json);
+	const parsed = JSON.parse(json) as ChatGPTConversation | ChatGPTConversation[];
 	const conversations = Array.isArray(parsed) ? parsed : [parsed];
 
 	return conversations.map(conv => ({
@@ -27,7 +66,7 @@ export class ChatGPTJsonParser implements IChatParser {
 
 	canParse(input: string): boolean {
 		try {
-			const parsed = JSON.parse(input);
+			const parsed = JSON.parse(input) as ChatGPTConversation | ChatGPTConversation[];
 			if (Array.isArray(parsed)) {
 				return parsed.length > 0 && parsed[0].mapping !== undefined;
 			}
@@ -38,7 +77,7 @@ export class ChatGPTJsonParser implements IChatParser {
 	}
 
 	parse(input: string, options?: ParseOptions): ParsedConversation {
-		const parsed = JSON.parse(input);
+		const parsed = JSON.parse(input) as ChatGPTConversation | ChatGPTConversation[];
 		const conversations = Array.isArray(parsed) ? parsed : [parsed];
 
 		let conv = conversations[0];
@@ -81,7 +120,7 @@ export class ChatGPTJsonParser implements IChatParser {
 			messages.push({
 				id: node.id || generateId(),
 				index,
-				role: role as 'user' | 'assistant',
+				role,
 				contentBlocks,
 				plainText,
 				timestamp,
@@ -112,15 +151,14 @@ export class ChatGPTJsonParser implements IChatParser {
 		};
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	private walkCurrentBranch(mapping: Record<string, any>, currentNodeId: string, warnings: string[]): any[] {
+	private walkCurrentBranch(mapping: Record<string, ChatGPTNode>, currentNodeId: string | undefined, warnings: string[]): ChatGPTNode[] {
 		if (!currentNodeId || !mapping[currentNodeId]) {
 			warnings.push('No current_node found; walking all nodes');
 			return Object.values(mapping).filter(n => n.message);
 		}
 
-		const chain: unknown[] = [];
-		let nodeId: string | null = currentNodeId;
+		const chain: ChatGPTNode[] = [];
+		let nodeId: string | undefined = currentNodeId;
 
 		while (nodeId && mapping[nodeId]) {
 			chain.unshift(mapping[nodeId]);
@@ -130,8 +168,7 @@ export class ChatGPTJsonParser implements IChatParser {
 		return chain;
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	private extractContentBlocks(msg: any, warnings: string[]): ContentBlock[] {
+	private extractContentBlocks(msg: ChatGPTMessage, warnings: string[]): ContentBlock[] {
 		const blocks: ContentBlock[] = [];
 		const content = msg.content;
 

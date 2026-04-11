@@ -46,7 +46,7 @@ export function buildFrontmatter(data: NoteFrontmatter, customFrontmatter?: stri
 
 function escapeYaml(value: string): string {
 	const singleLine = value.replace(/\n+/g, ' ').trim();
-	if (/[:#\[\]{}|>&*!%@`'",?]/.test(singleLine)) {
+	if (/[:#[\]{}|>&*!%@`'",?]/.test(singleLine)) {
 		return `"${singleLine.replace(/"/g, '\\"')}"`;
 	}
 	return singleLine;

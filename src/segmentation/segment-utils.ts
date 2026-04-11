@@ -1,4 +1,4 @@
-import type { Segment, Message } from '../types';
+import type { Segment } from '../types';
 import { generateTitle } from './title-generator';
 import { generateTags } from './tag-generator';
 

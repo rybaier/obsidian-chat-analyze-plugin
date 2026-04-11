@@ -54,7 +54,7 @@ function parseResponse(response: string): LLMSegmentResult[] {
 		throw new Error('Ollama response did not contain a JSON array');
 	}
 
-	const parsed = JSON.parse(jsonMatch[0]);
+	const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>[];
 	if (!Array.isArray(parsed)) {
 		throw new Error('Ollama response is not a JSON array');
 	}

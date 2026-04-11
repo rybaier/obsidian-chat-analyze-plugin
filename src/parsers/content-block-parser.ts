@@ -13,7 +13,7 @@ export function parseContentBlocks(content: string): ContentBlock[] {
 	}
 
 	for (const match of matches) {
-		const matchStart = match.index!;
+		const matchStart = match.index;
 		const matchEnd = matchStart + match[0].length;
 
 		if (matchStart > lastIndex) {

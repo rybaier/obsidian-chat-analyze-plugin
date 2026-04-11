@@ -30,10 +30,10 @@ export class OllamaClient {
 
 			if (response.status !== 200) return [];
 
-			const data = response.json;
+			const data = response.json as { models?: { name: string }[] };
 			if (!data.models || !Array.isArray(data.models)) return [];
 
-			return data.models.map((m: Record<string, unknown>) => m.name as string);
+			return data.models.map(m => m.name);
 		} catch {
 			return [];
 		}
@@ -64,7 +64,7 @@ export class OllamaClient {
 			throw new Error(`Ollama returned status ${response.status}`);
 		}
 
-		const data = response.json;
+		const data = response.json as { response?: string };
 		if (!data.response) {
 			throw new Error('Ollama returned empty response');
 		}

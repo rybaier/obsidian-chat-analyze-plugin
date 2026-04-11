@@ -6,6 +6,6 @@ export function setDebugLogging(enabled: boolean): void {
 
 export function debugLog(...args: unknown[]): void {
 	if (debugEnabled) {
-		console.log('[Chat Splitter]', ...args);
+		console.debug('[Chat Splitter]', ...args);
 	}
 }
