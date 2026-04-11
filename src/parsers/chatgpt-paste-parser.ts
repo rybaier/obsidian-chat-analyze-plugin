@@ -5,7 +5,17 @@ import { parseContentBlocks } from './content-block-parser';
 
 const SPEAKER_PATTERN = /^(You said|ChatGPT said|You|ChatGPT)\s*:\s*$/im;
 const THOUGHT_PATTERN = /^Thought for .*$/im;
-const MAX_USER_PARAGRAPH_LENGTH = 300;
+const MAX_USER_PARAGRAPH_LENGTH = 200;
+
+// Patterns that indicate assistant-style text, not user questions
+const ASSISTANT_CONTINUATION_PATTERNS = [
+	/^if you (tell|give|let|share|send|show)\s+me\b/i,
+	/^if you'?d?\s+(like|prefer|want)\b/i,
+	/^(i can|i'll|i will|i'd be happy to|let me)\b/i,
+	/^(just tell|just let)\s+me\b/i,
+	/^(that|this|it)\s+(means|would|will|can|could|should|is|helps|matters)\b/i,
+	/^(for|from|with|given|based on)\s+(all|each|every|these|those|the|your|this|that)\b/i,
+];
 
 function generateId(): string {
 	return crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2, 10);
@@ -16,12 +26,28 @@ function isThoughtLine(line: string): boolean {
 }
 
 function isUserLikeParagraph(paragraph: string): boolean {
-	if (paragraph.length > MAX_USER_PARAGRAPH_LENGTH) return false;
-	if (/^```|^~~~/.test(paragraph)) return false;
-	if (/^#{1,6}\s/.test(paragraph)) return false;
-	if (/^[\-*+]\s/.test(paragraph)) return false;
-	if (/^\d+\.\s/.test(paragraph)) return false;
-	if (/\*\*[^*]+\*\*/.test(paragraph)) return false;
+	const trimmed = paragraph.trim();
+	if (trimmed.length > MAX_USER_PARAGRAPH_LENGTH) return false;
+	// Reject URLs (image links, references pasted by assistant)
+	if (/^https?:\/\//.test(trimmed)) return false;
+	// Reject code fences
+	if (/^```|^~~~/.test(trimmed)) return false;
+	// Reject headings
+	if (/^#{1,6}\s/.test(trimmed)) return false;
+	// Reject list markers
+	if (/^[\-*+]\s/.test(trimmed)) return false;
+	// Reject numbered lists
+	if (/^\d+\.\s/.test(trimmed)) return false;
+	// Reject bold text
+	if (/\*\*[^*]+\*\*/.test(trimmed)) return false;
+	// Reject unicode em/en dashes (common in assistant formatted text, rare in user input)
+	if (/[\u2014\u2013]/.test(trimmed)) return false;
+	// Reject ellipsis start (assistant continuation "...I'll")
+	if (/^[\u2026\.\.\.]/.test(trimmed)) return false;
+	// Reject assistant-style continuation language
+	for (const pattern of ASSISTANT_CONTINUATION_PATTERNS) {
+		if (pattern.test(trimmed)) return false;
+	}
 	return true;
 }
 
