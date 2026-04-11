@@ -59,3 +59,11 @@
 ### D13: Relaxed minimums in segmentation fallback
 - **Decision:** Fallback uses minMessages=2 and minWords=80 (matching "fine" granularity) instead of the user's selected thresholds (medium: minMessages=4, minWords=200). Target segments calculated as floor(messageCount / 3).
 - **Rationale:** caribbean6 still produced only 3 segments because `allSegmentsMeetMinimum` with minMessages=4 rejected all fallback boundary candidates. Many natural topic breaks in this conversation occur between 2-message exchanges (1 short user question + 1 long assistant response). Using minMessages=4 prevents these natural boundaries from being accepted, even though each 2-message segment contains thousands of words. The relaxed minimums allow the fallback to create segments at natural user+assistant pair boundaries.
+
+### D14: Remove character limit and overly broad pattern from user paragraph detection
+- **Decision:** Remove `MAX_USER_PARAGRAPH_LENGTH` entirely from `isUserLikeParagraph()`. Remove the `(that|this|it)\s+(means|would|will|can|could|should|is|helps|matters)` pattern from `ASSISTANT_CONTINUATION_PATTERNS`.
+- **Rationale:** A fixed character limit is the wrong heuristic -- user prompts can be any length. The content-based checks (markdown formatting, URLs, em-dashes, continuation patterns) are the correct distinguishers. The broad "it is/this means" pattern falsely matched user text like "it is a couple with a dog and 2 cats".
+
+### D15: Handle "St." abbreviation in entity extraction
+- **Decision:** Add `\b(St|Dr|Mr|Mrs|Ms|Jr|Sr|Mt|Ft|Pt)\.(?=\s)` stripping to `normalizeAbbreviations()` so "St. Kitts" stays together during sentence splitting.
+- **Rationale:** The period in "St." caused sentence splitting to break "St. Kitts" into separate chunks, producing the broken tag `caribbean-plan/st` instead of `caribbean-plan/st-kitts`.

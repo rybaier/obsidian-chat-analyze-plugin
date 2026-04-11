@@ -794,9 +794,13 @@ const MINOR_WORDS = new Set([
 
 function normalizeAbbreviations(text: string): string {
 	// Convert "U.S." / "U.S.A." / "U.K." style abbreviations to solid form
-	return text.replace(/\b([A-Z])\.([A-Z])\.(?:([A-Z])\.)?/g, (_match, a, b, c) => {
+	text = text.replace(/\b([A-Z])\.([A-Z])\.(?:([A-Z])\.)?/g, (_match, a, b, c) => {
 		return c ? `${a}${b}${c}` : `${a}${b}`;
 	});
+	// Strip periods from common title/geographic abbreviations to prevent
+	// sentence splitting (e.g., "St. Kitts" stays together as "St Kitts")
+	text = text.replace(/\b(St|Dr|Mr|Mrs|Ms|Jr|Sr|Mt|Ft|Pt)\.(?=\s)/gi, '$1');
+	return text;
 }
 
 function toTitleCase(str: string): string {

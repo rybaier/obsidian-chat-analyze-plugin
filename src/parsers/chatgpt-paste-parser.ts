@@ -5,7 +5,6 @@ import { parseContentBlocks } from './content-block-parser';
 
 const SPEAKER_PATTERN = /^(You said|ChatGPT said|You|ChatGPT)\s*:\s*$/im;
 const THOUGHT_PATTERN = /^Thought for .*$/im;
-const MAX_USER_PARAGRAPH_LENGTH = 200;
 
 // Patterns that indicate assistant-style text, not user questions
 const ASSISTANT_CONTINUATION_PATTERNS = [
@@ -13,7 +12,6 @@ const ASSISTANT_CONTINUATION_PATTERNS = [
 	/^if you'?d?\s+(like|prefer|want)\b/i,
 	/^(i can|i'll|i will|i'd be happy to|let me)\b/i,
 	/^(just tell|just let)\s+me\b/i,
-	/^(that|this|it)\s+(means|would|will|can|could|should|is|helps|matters)\b/i,
 	/^(for|from|with|given|based on)\s+(all|each|every|these|those|the|your|this|that)\b/i,
 ];
 
@@ -27,7 +25,6 @@ function isThoughtLine(line: string): boolean {
 
 function isUserLikeParagraph(paragraph: string): boolean {
 	const trimmed = paragraph.trim();
-	if (trimmed.length > MAX_USER_PARAGRAPH_LENGTH) return false;
 	// Reject URLs (image links, references pasted by assistant)
 	if (/^https?:\/\//.test(trimmed)) return false;
 	// Reject code fences
