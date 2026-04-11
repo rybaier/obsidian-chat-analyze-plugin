@@ -49,9 +49,18 @@ export function segment(
 
 	const boundaries = scoreBoundaries(messages, config);
 
+	debugLog(`[Segmenter] ${messages.length} messages, ${boundaries.length} boundaries scored`);
+	debugLog(`[Segmenter] Thresholds: confidence=${config.thresholds.confidenceThreshold}, minMessages=${config.thresholds.minMessages}, minWords=${config.thresholds.minWords}`);
+	for (const b of [...boundaries].sort((a, c) => c.score - a.score)) {
+		const signalDetail = b.signals.map(s => `${s.signal}=${s.score.toFixed(2)}*${s.weight.toFixed(2)}`).join(', ');
+		debugLog(`[Segmenter] Boundary@${b.beforeIndex}: score=${b.score.toFixed(3)} [${signalDetail}]`);
+	}
+
 	const sorted = [...boundaries]
 		.filter(b => b.score >= config.thresholds.confidenceThreshold)
 		.sort((a, b) => b.score - a.score);
+
+	debugLog(`[Segmenter] ${sorted.length} boundaries pass confidence threshold ${config.thresholds.confidenceThreshold}`);
 
 	const acceptedIndices: number[] = [];
 
@@ -64,18 +73,40 @@ export function segment(
 		}
 	}
 
+	debugLog(`[Segmenter] ${acceptedIndices.length} boundaries accepted after min-size check`);
+
 	// Fallback: boost segmentation when the conversation is long but
-	// under-segmented. Fires when either (a) no boundaries passed the
-	// confidence threshold, or (b) the accepted count is less than half
-	// of what we'd expect given conversation length and minMessages.
-	const expectedSegments = Math.max(2, Math.floor(messages.length / config.thresholds.minMessages));
+	// under-segmented. Uses relaxed minimums (minMessages=2, minWords=80)
+	// because conversations with alternating short user + long assistant
+	// messages naturally form 2-message topic segments that would be
+	// rejected by the standard minMessages=4 check.
+	const FALLBACK_MIN_MESSAGES = 2;
+	const FALLBACK_MIN_WORDS = 80;
+	// Calculate expected segments based on the relaxed minimum, since
+	// many conversations have user+assistant pairs as natural units
+	const expectedSegments = Math.max(2, Math.floor(messages.length / FALLBACK_MIN_MESSAGES));
 	const isLongConversation = messages.length >= config.thresholds.minMessages * 3;
 	const isUnderSegmented = isLongConversation
 		&& (acceptedIndices.length + 1) < expectedSegments / 2;
 
+	debugLog(`[Segmenter] expected=${expectedSegments}, isLong=${isLongConversation}, isUnderSegmented=${isUnderSegmented}`);
+
 	if ((acceptedIndices.length === 0 || isUnderSegmented) && boundaries.length > 0) {
+		debugLog(`[Segmenter] Fallback triggered (relaxed minimums: ${FALLBACK_MIN_MESSAGES} msgs, ${FALLBACK_MIN_WORDS} words)`);
 		if (isLongConversation) {
-			const maxBoundaries = expectedSegments - 1;
+			// Use a reasonable target: allow up to boundary count that would
+			// create segments averaging ~3 messages each (between fine and medium)
+			const targetSegments = Math.max(2, Math.floor(messages.length / 3));
+			const maxBoundaries = targetSegments - 1;
+			// Build a relaxed config for the fallback minimum-size check
+			const relaxedConfig: SegmentationConfig = {
+				...config,
+				thresholds: {
+					...config.thresholds,
+					minMessages: FALLBACK_MIN_MESSAGES,
+					minWords: FALLBACK_MIN_WORDS,
+				},
+			};
 			// Gather below-threshold boundaries not yet accepted
 			const alreadyAccepted = new Set(acceptedIndices);
 			const remainingBoundaries = [...boundaries]
@@ -83,13 +114,20 @@ export function segment(
 				.sort((a, b) => b.score - a.score)
 				.slice(0, maxBoundaries - acceptedIndices.length);
 
+			debugLog(`[Segmenter] Trying ${remainingBoundaries.length} remaining boundaries (target ${targetSegments} segments)`);
+
 			for (const boundary of remainingBoundaries) {
 				const testIndices = [...acceptedIndices, boundary.beforeIndex].sort((a, b) => a - b);
-				if (allSegmentsMeetMinimum(messages, testIndices, config)) {
+				if (allSegmentsMeetMinimum(messages, testIndices, relaxedConfig)) {
 					acceptedIndices.push(boundary.beforeIndex);
 					acceptedIndices.sort((a, b) => a - b);
+					debugLog(`[Segmenter] Fallback accepted boundary@${boundary.beforeIndex} (score=${boundary.score.toFixed(3)})`);
+				} else {
+					debugLog(`[Segmenter] Fallback rejected boundary@${boundary.beforeIndex} (failed min-size)`);
 				}
 			}
+
+			debugLog(`[Segmenter] Final: ${acceptedIndices.length} boundaries -> ${acceptedIndices.length + 1} segments`);
 		}
 
 		if (acceptedIndices.length === 0) {

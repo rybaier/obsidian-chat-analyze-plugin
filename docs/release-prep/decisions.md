@@ -55,3 +55,7 @@
 ### D12: Extend segmentation fallback to under-segmented conversations
 - **Decision:** Change fallback trigger from `acceptedIndices.length === 0` to also fire when `(acceptedIndices.length + 1) < expectedSegments / 2`. The fallback then adds below-threshold boundaries that weren't already accepted.
 - **Rationale:** caribbean5 test showed 3 segments from 28 messages (target ~9). Two boundaries passed the 0.40 threshold, so the original fallback (which only fired at zero) never triggered. The new condition detects when segmentation is less than half of expected and supplements with the highest-scoring remaining boundaries.
+
+### D13: Relaxed minimums in segmentation fallback
+- **Decision:** Fallback uses minMessages=2 and minWords=80 (matching "fine" granularity) instead of the user's selected thresholds (medium: minMessages=4, minWords=200). Target segments calculated as floor(messageCount / 3).
+- **Rationale:** caribbean6 still produced only 3 segments because `allSegmentsMeetMinimum` with minMessages=4 rejected all fallback boundary candidates. Many natural topic breaks in this conversation occur between 2-message exchanges (1 short user question + 1 long assistant response). Using minMessages=4 prevents these natural boundaries from being accepted, even though each 2-message segment contains thousands of words. The relaxed minimums allow the fallback to create segments at natural user+assistant pair boundaries.
