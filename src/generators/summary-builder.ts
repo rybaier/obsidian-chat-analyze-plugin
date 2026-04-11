@@ -229,6 +229,14 @@ export function extractTopics(messages: Message[]): string[] {
 	return topics;
 }
 
+function isAssistantPrompt(text: string): boolean {
+	if (/\b(if you tell me|if you give me|if you let me|if you share|if you send)\b/i.test(text)) return true;
+	if (/\b(if you want|if you'd like|if you prefer|if you need)\b/i.test(text)) return true;
+	if (/\b(let me know|you can also|feel free to|just tell me|just let me know)\b/i.test(text)) return true;
+	if (/\bif you\b/i.test(text)) return true;
+	return false;
+}
+
 export function extractTakeaways(messages: Message[]): string[] {
 	const assistantMessages = messages.filter(m => m.role === 'assistant');
 	if (assistantMessages.length === 0) return [];
@@ -248,10 +256,7 @@ export function extractTakeaways(messages: Message[]): string[] {
 			if (!matchesPattern) continue;
 
 			// Filter out user-directed prompts and assistant solicitations
-			if (/\b(if you tell me|if you give me|if you let me|if you share|if you send)\b/i.test(sentence)) continue;
-			if (/\b(if you want|if you'd like|if you prefer|if you need)\b/i.test(sentence)) continue;
-			if (/\b(let me know|you can also|feel free to|just tell me|just let me know)\b/i.test(sentence)) continue;
-			if (/^if you\b/i.test(sentence.trim())) continue;
+			if (isAssistantPrompt(sentence)) continue;
 
 			// B7: Filter conversational filler
 			if (CONVERSATIONAL_ACK_PATTERN.test(sentence)) continue;
@@ -291,6 +296,8 @@ export function extractTakeaways(messages: Message[]): string[] {
 				const hasActionableLanguage = TAKEAWAY_PATTERNS.some(p => p.test(text));
 				if (!hasActionableLanguage) continue;
 
+				if (isAssistantPrompt(text)) continue;
+
 				const truncated = truncateItem(text);
 				if (!isDuplicate(truncated, takeaways)) {
 					takeaways.push(truncated);
@@ -320,7 +327,7 @@ export function extractTakeaways(messages: Message[]): string[] {
 					: lastParagraph.slice(0, 200).trim();
 
 				const cleaned = cleanMarkdownInline(sentence);
-				if (cleaned.length >= 15) {
+				if (cleaned.length >= 15 && !isAssistantPrompt(cleaned)) {
 					takeaways.push(truncateItem(cleaned));
 				}
 			}
