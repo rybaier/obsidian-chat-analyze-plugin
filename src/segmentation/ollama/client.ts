@@ -55,7 +55,7 @@ export class OllamaClient {
 		});
 
 		const timeout = new Promise<never>((_, reject) => {
-			setTimeout(() => reject(new Error(`Ollama request timed out after ${TIMEOUT_MS / 1000}s`)), TIMEOUT_MS);
+			activeWindow.setTimeout(() => reject(new Error(`Ollama request timed out after ${TIMEOUT_MS / 1000}s`)), TIMEOUT_MS);
 		});
 
 		const response = await Promise.race([request, timeout]);

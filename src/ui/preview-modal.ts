@@ -43,7 +43,6 @@ export class PreviewModal extends Modal {
 
 		const scrollContainer = this.contentEl.createDiv({
 			cls: 'chat-splitter-preview-scroll',
-			attr: { style: 'max-height: 60vh; overflow-y: auto;' },
 		});
 
 		for (let i = 0; i < this.segments.length; i++) {
@@ -52,7 +51,6 @@ export class PreviewModal extends Modal {
 			if (i > 0) {
 				const mergeBar = scrollContainer.createDiv({
 					cls: 'chat-splitter-merge-bar',
-					attr: { style: 'text-align: center; padding: 4px 0;' },
 				});
 				const mergeBtn = mergeBar.createEl('button', {
 					text: 'Merge with above',
@@ -77,7 +75,6 @@ export class PreviewModal extends Modal {
 				type: 'text',
 				value: seg.title,
 				cls: 'chat-splitter-segment-title-input',
-				attr: { style: 'flex: 1; font-weight: bold; border: none; background: transparent;' },
 			});
 			titleInput.addEventListener('blur', () => {
 				if (titleInput.value !== seg.title) {
@@ -90,18 +87,16 @@ export class PreviewModal extends Modal {
 				}
 			});
 
-			const meta = headerRow.createSpan({
+			headerRow.createSpan({
 				text: `${seg.messages.length} msgs`,
 				cls: 'chat-splitter-segment-meta',
-				attr: { style: 'color: var(--text-muted); font-size: var(--font-smallest); margin-left: 8px;' },
 			});
 
-			const tagsRow = card.createDiv({ attr: { style: 'margin: 4px 0;' } });
+			const tagsRow = card.createDiv({ cls: 'chat-splitter-tags-row' });
 			for (const tag of seg.tags) {
 				tagsRow.createSpan({
 					text: tag,
 					cls: 'chat-splitter-tag-pill',
-					attr: { style: 'display: inline-block; padding: 1px 6px; margin: 2px; border-radius: 8px; font-size: var(--font-smallest); background: var(--background-modifier-border);' },
 				});
 			}
 
@@ -114,24 +109,24 @@ export class PreviewModal extends Modal {
 				const suffix = msg.plainText.length > 100 ? '...' : '';
 				preview.createEl('p', {
 					text: `${label}: ${text}${suffix}`,
-					attr: { style: 'margin: 2px 0;' },
+					cls: 'chat-splitter-preview-line',
 				});
 			}
 			if (seg.messages.length > 3) {
 				const showAll = preview.createEl('a', {
 					text: `Show all ${seg.messages.length} messages`,
-					attr: { href: '#', style: 'font-size: var(--font-smallest);' },
+					cls: 'chat-splitter-show-all-link',
+					attr: { href: '#' },
 				});
 				showAll.addEventListener('click', (e) => {
 					e.preventDefault();
-					this.renderExpandedSegment(preview, seg, i);
+					this.renderExpandedSegment(preview, seg);
 				});
 			}
 		}
 
 		const bottomBar = this.contentEl.createDiv({
 			cls: 'chat-splitter-bottom-bar',
-			attr: { style: 'display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid var(--background-modifier-border); margin-top: 12px;' },
 		});
 
 		const undoBtn = bottomBar.createEl('button', { text: 'Undo last change' });
@@ -156,7 +151,7 @@ export class PreviewModal extends Modal {
 		});
 	}
 
-	private renderExpandedSegment(container: HTMLElement, seg: Segment, segIndex: number): void {
+	private renderExpandedSegment(container: HTMLElement, seg: Segment): void {
 		container.empty();
 
 		for (let j = 0; j < seg.messages.length; j++) {
@@ -168,7 +163,6 @@ export class PreviewModal extends Modal {
 			if (j > 0 && msg.role === 'user') {
 				const divider = container.createDiv({
 					cls: 'chat-splitter-split-divider',
-					attr: { style: 'text-align: center; padding: 2px 0; cursor: pointer; color: var(--text-accent); font-size: var(--font-smallest); border-top: 1px dashed var(--background-modifier-border);' },
 				});
 				divider.createSpan({ text: 'Split at this point' });
 				const splitIndex = seg.startIndex + j;
@@ -181,7 +175,7 @@ export class PreviewModal extends Modal {
 
 			container.createEl('p', {
 				text: `${label}: ${text}${suffix}`,
-				attr: { style: 'margin: 2px 0;' },
+				cls: 'chat-splitter-preview-line',
 			});
 		}
 	}

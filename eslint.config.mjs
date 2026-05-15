@@ -14,6 +14,7 @@ export default defineConfig([
         crypto: "readonly",
         setTimeout: "readonly",
         clearTimeout: "readonly",
+        activeWindow: "readonly",
       },
     },
   },

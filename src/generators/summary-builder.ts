@@ -354,7 +354,13 @@ function splitIntoSentences(text: string): string[] {
 	const sentences: string[] = [];
 
 	// Split on sentence-ending punctuation followed by space or newline
-	const parts = stripped.split(/(?<=[.!?])\s+/);
+	// (avoids lookbehind for iOS < 16.4 compatibility)
+	const chunks = stripped.split(/([.!?])\s+/);
+	const parts: string[] = [];
+	for (let i = 0; i < chunks.length; i += 2) {
+		const punct = chunks[i + 1] || '';
+		parts.push(chunks[i] + punct);
+	}
 	for (const part of parts) {
 		// Restore abbreviations
 		let restored = part;

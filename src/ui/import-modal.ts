@@ -28,7 +28,7 @@ export class ImportModal extends Modal {
 	private segments: Segment[] = [];
 	private importConfig: ImportConfig;
 	private detectedFormat: InputFormat | null = null;
-	private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+	private debounceTimer: number | null = null;
 	private sourceOverride: 'auto' | 'chatgpt' | 'claude' | 'document' = 'auto';
 	private availableConversations: ConversationChoice[] = [];
 	private selectedConversationId: string | null = null;
@@ -53,7 +53,7 @@ export class ImportModal extends Modal {
 
 	onClose(): void {
 		if (this.debounceTimer) {
-			clearTimeout(this.debounceTimer);
+			activeWindow.clearTimeout(this.debounceTimer);
 		}
 		this.contentEl.empty();
 	}
@@ -156,8 +156,8 @@ export class ImportModal extends Modal {
 
 		textarea.addEventListener('input', () => {
 			this.rawInput = textarea.value;
-			if (this.debounceTimer) clearTimeout(this.debounceTimer);
-			this.debounceTimer = setTimeout(() => {
+			if (this.debounceTimer) activeWindow.clearTimeout(this.debounceTimer);
+			this.debounceTimer = activeWindow.setTimeout(() => {
 				this.updateFormatBadge(badge);
 				const btn = this.contentEl.querySelector('.mod-cta') as HTMLButtonElement;
 				if (btn) btn.disabled = !this.rawInput.trim();
@@ -168,7 +168,8 @@ export class ImportModal extends Modal {
 	private renderFileInput(badge: HTMLElement): void {
 		const fileContainer = this.contentEl.createDiv('chat-splitter-file-input');
 		const fileInput = fileContainer.createEl('input', {
-			attr: { type: 'file', accept: '.json,.zip,.md', style: 'display: none' },
+			cls: 'chat-splitter-hidden',
+			attr: { type: 'file', accept: '.json,.zip,.md' },
 		});
 
 		const chooseBtn = fileContainer.createEl('button', { text: 'Choose file' });
@@ -449,7 +450,8 @@ export class ImportModal extends Modal {
 
 		const previewLink = this.contentEl.createEl('a', {
 			text: 'Preview segments...',
-			attr: { href: '#', style: 'display: block; margin-top: 8px; font-size: var(--font-smaller);' },
+			cls: 'chat-splitter-preview-link',
+			attr: { href: '#' },
 		});
 		previewLink.addEventListener('click', (e) => {
 			e.preventDefault();
