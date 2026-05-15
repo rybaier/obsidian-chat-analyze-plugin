@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-chat-splitter",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "Split long AI chat transcripts into organized, topic-specific notes.",
 	"main": "main.js",
 	"scripts": {

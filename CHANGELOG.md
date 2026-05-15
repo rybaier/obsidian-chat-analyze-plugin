@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.1
+
+### Fixes
+- Bump minAppVersion to 1.4.10 for AbstractInputSuggest, Vault.createFolder, and Workspace.openLinkText API compatibility
+- Replace lookbehind regex in summary builder for iOS < 16.4 compatibility
+- Switch setTimeout/clearTimeout to activeWindow variants for popout window compatibility
+- Move remaining inline styles in preview and import modals to CSS classes
+- Remove unused variables and parameters flagged by lint
+
 ## 0.1.0 (Initial Release)
 
 ### Features
