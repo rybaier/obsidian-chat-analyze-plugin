@@ -1,5 +1,5 @@
 import { Modal, Setting, Notice, type App } from 'obsidian';
-import JSZip from 'jszip';
+import { unzipSync, strFromU8 } from 'fflate';
 import type { ParsedConversation, Segment, ImportConfig, ChatSplitterSettings, SpeakerStyle } from '../types';
 import { GRANULARITY_PRESETS } from '../types';
 import { parseInput, detectFormat, listConversations, type InputFormat, type ParseOptions } from '../parsers';
@@ -204,26 +204,20 @@ export class ImportModal extends Modal {
 
 	private async extractZip(file: File): Promise<string> {
 		const buffer = await file.arrayBuffer();
-		const zip = await JSZip.loadAsync(buffer);
-		const jsonFiles: string[] = [];
-
-		zip.forEach((relativePath: string, entry: JSZip.JSZipObject) => {
-			if (!entry.dir && relativePath.endsWith('.json')) {
-				jsonFiles.push(relativePath);
-			}
-		});
+		const entries = unzipSync(new Uint8Array(buffer));
+		const jsonFiles = Object.keys(entries).filter(name => !name.endsWith('/') && name.endsWith('.json'));
 
 		if (jsonFiles.length === 0) {
 			throw new Error('No JSON files found in ZIP archive');
 		}
 
 		const targetFile = jsonFiles.find(f => f.includes('conversations')) || jsonFiles[0];
-		const content = await zip.file(targetFile)?.async('string');
-		if (!content) {
+		const bytes = entries[targetFile];
+		if (!bytes) {
 			throw new Error(`Could not read ${targetFile} from ZIP archive`);
 		}
 
-		return content;
+		return strFromU8(bytes);
 	}
 
 	private checkMultiConversation(badge: HTMLElement): void {

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.2
+
+### Fixes
+- Replace JSZip with fflate for ZIP extraction. JSZip bundled IE-era setImmediate polyfills that dynamically create `<script>` elements, which Obsidian's security review flags. fflate has no such fallbacks and roughly halves the plugin bundle size.
+
 ## 0.1.1
 
 ### Fixes

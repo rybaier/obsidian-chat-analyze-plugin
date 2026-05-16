@@ -1,7 +1,7 @@
 {
 	"id": "chat-splitter",
 	"name": "Chat Splitter",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"minAppVersion": "1.4.10",
 	"description": "Split long AI chat transcripts into organized, topic-specific notes.",
 	"author": "Ryan Baier",
